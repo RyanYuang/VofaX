@@ -1,0 +1,11 @@
+{
+  "name": "Example Widget",
+  "version": "1.0.0",
+  "author": "UniScope Team",
+  "description": "An example widget plugin demonstrating the plugin system",
+  "widget_type": "example_widget",
+  "entry_point": "widget.ExampleWidget",
+  "category": "Example",
+  "icon": "⭐",
+  "requires": []
+}
