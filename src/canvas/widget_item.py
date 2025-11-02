@@ -68,24 +68,31 @@ class DraggableContainer(QFrame):
 
                 event.accept()
                 return
+        elif self.is_dragging:
+            # 鼠标按钮已经释放，结束拖拽
+            self._end_drag()
 
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
         """鼠标释放事件"""
-        if event.button() == Qt.MouseButton.LeftButton and self.is_dragging:
-            self.is_dragging = False
-            self.drag_start_pos = None
-
-            # 恢复透明度
-            if self.proxy_widget:
-                self.proxy_widget.drag_opacity = 1.0
-                self.proxy_widget.update()
-
-            event.accept()
-            return
+        if event.button() == Qt.MouseButton.LeftButton:
+            if self.is_dragging:
+                self._end_drag()
+                event.accept()
+                return
 
         super().mouseReleaseEvent(event)
+
+    def _end_drag(self):
+        """结束拖拽"""
+        self.is_dragging = False
+        self.drag_start_pos = None
+
+        # 恢复透明度
+        if self.proxy_widget:
+            self.proxy_widget.drag_opacity = 1.0
+            self.proxy_widget.update()
 
 
 class WidgetItem(QGraphicsProxyWidget):
