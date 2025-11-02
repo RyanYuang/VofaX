@@ -3,8 +3,11 @@ WidgetItem - 画布上的 Widget 容器
 负责拖拽、调整大小、选中状态管理
 """
 
-from PyQt6.QtWidgets import QGraphicsProxyWidget, QWidget, QVBoxLayout, QLabel, QFrame
-from PyQt6.QtCore import Qt, pyqtSignal, QRectF, QPointF
+from PyQt6.QtWidgets import (
+    QGraphicsProxyWidget, QWidget, QVBoxLayout, QHBoxLayout,
+    QLabel, QFrame, QGraphicsDropShadowEffect
+)
+from PyQt6.QtCore import Qt, pyqtSignal, QRectF, QPointF, QEvent
 from PyQt6.QtGui import QPainter, QPen, QColor, QCursor
 from typing import Dict, Any
 
@@ -15,6 +18,74 @@ from ..widgets.gauge import GaugeWidget
 from ..widgets.data_table import DataTableWidget
 from ..widgets.packet_analyzer import PacketAnalyzerWidget
 from ..widgets.chart import ChartWidget
+
+
+class DraggableContainer(QFrame):
+    """可拖拽的容器 - 在标题栏区域转发鼠标事件到 QGraphicsProxyWidget"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.proxy_widget = None  # 将在 WidgetItem 中设置
+        self.title_bar_height = 40  # 标题栏高度
+        self.is_dragging = False
+        self.drag_start_pos = None
+
+    def mousePressEvent(self, event):
+        """鼠标按下事件"""
+        if event.button() == Qt.MouseButton.LeftButton:
+            # 检查是否在标题栏区域
+            if event.pos().y() <= self.title_bar_height:
+                # 在标题栏区域，开始拖拽
+                self.is_dragging = True
+                self.drag_start_pos = event.pos()
+
+                # 通知 proxy widget 被选中
+                if self.proxy_widget:
+                    self.proxy_widget.selected.emit(self.proxy_widget)
+                    self.proxy_widget.drag_opacity = 0.5
+                    self.proxy_widget.update()
+
+                event.accept()
+                return
+
+        # 不在标题栏区域，传递给子 widget
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        """鼠标移动事件"""
+        if self.is_dragging and (event.buttons() & Qt.MouseButton.LeftButton):
+            if self.proxy_widget and self.drag_start_pos:
+                # 计算移动距离
+                delta = event.pos() - self.drag_start_pos
+
+                # 移动 proxy widget
+                new_pos = self.proxy_widget.pos() + QPointF(delta.x(), delta.y())
+                self.proxy_widget.setPos(new_pos)
+
+                # 更新数据
+                self.proxy_widget.widget_data['x'] = new_pos.x()
+                self.proxy_widget.widget_data['y'] = new_pos.y()
+
+                event.accept()
+                return
+
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        """鼠标释放事件"""
+        if event.button() == Qt.MouseButton.LeftButton and self.is_dragging:
+            self.is_dragging = False
+            self.drag_start_pos = None
+
+            # 恢复透明度
+            if self.proxy_widget:
+                self.proxy_widget.drag_opacity = 1.0
+                self.proxy_widget.update()
+
+            event.accept()
+            return
+
+        super().mouseReleaseEvent(event)
 
 
 class WidgetItem(QGraphicsProxyWidget):
@@ -51,40 +122,55 @@ class WidgetItem(QGraphicsProxyWidget):
 
     def _create_widget(self):
         """根据类型创建 Widget"""
-        # 创建容器
-        container = QFrame()
-        container.setStyleSheet(f"""
-            QFrame {{
-                background-color: {'#252525' if self.theme == 'dark' else '#FFFFFF'};
-                border: 2px solid {'#3A3A3A' if self.theme == 'dark' else '#E0E0E0'};
-                border-radius: 8px;
-            }}
-        """)
+        # 创建容器（使用自定义的可拖拽容器）
+        container = DraggableContainer()
+        container.proxy_widget = self  # 设置 proxy widget 引用
+        container.setObjectName("widgetContainer")
+
+        # 设置基础样式
+        self._update_container_style(container, selected=False)
 
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # 标题栏
+        # 标题栏（带拖拽手柄）
         title_bar = QWidget()
+        title_bar.setObjectName("titleBar")
+        title_bar.setFixedHeight(40)
+        # 设置鼠标跟踪以支持拖拽
+        title_bar.setMouseTracking(True)
         title_bar.setStyleSheet(f"""
-            background-color: {'#1A1A1A' if self.theme == 'dark' else '#F5F5F5'};
-            border-top-left-radius: 6px;
-            border-top-right-radius: 6px;
-            padding: 8px 12px;
+            QWidget#titleBar {{
+                background-color: {'#2A2A2A' if self.theme == 'dark' else '#F9FAFB'};
+                border-top-left-radius: 8px;
+                border-top-right-radius: 8px;
+                border-bottom: 1px solid {'#3A3A3A' if self.theme == 'dark' else '#E5E7EB'};
+            }}
         """)
-        title_layout = QVBoxLayout(title_bar)
-        title_layout.setContentsMargins(8, 6, 8, 6)
+        # 存储引用以便后续使用
+        self.title_bar = title_bar
 
+        title_layout = QHBoxLayout(title_bar)
+        title_layout.setContentsMargins(12, 8, 12, 8)
+        title_layout.setSpacing(8)
+
+        # 拖拽手柄图标 (GripVertical)
+        grip_icon = self._create_grip_icon()
+        title_layout.addWidget(grip_icon)
+
+        # 标题文字
         title_label = QLabel(self.widget_data['title'])
         title_label.setStyleSheet(f"""
-            color: {'#FFFFFF' if self.theme == 'dark' else '#000000'};
-            font-weight: 600;
-            font-size: 13px;
+            color: {'#E5E7EB' if self.theme == 'dark' else '#1F2937'};
+            font-weight: 500;
+            font-size: 14px;
         """)
         title_layout.addWidget(title_label)
 
-        layout.addWidget(title_bar)
+        title_layout.addStretch()
+
+        layout.addWidget(title_bar, 0)
 
         # 实际 Widget 内容
         widget_type = self.widget_data['type']
@@ -110,16 +196,96 @@ class WidgetItem(QGraphicsProxyWidget):
             self.content_widget = QLabel(f"Widget: {widget_type}")
             self.content_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
+        # ← 确保内容 Widget 可见
+        self.content_widget.setMinimumHeight(100)
+        
+        # ← 关键修复：强制显示 content_widget
+        self.content_widget.setVisible(True)
+        self.content_widget.show()
+        
         layout.addWidget(self.content_widget, 1)
+        
 
         # 设置容器尺寸
         container.setFixedSize(
             self.widget_data['width'],
             self.widget_data['height']
         )
+        
+        # ← 容器需要最小高度，否则layout会被压缩
+        container.setMinimumHeight(150)
 
+        # 注意：不添加阴影效果，因为 QGraphicsDropShadowEffect 在 QGraphicsProxyWidget 上
+        # 会导致内容不可见（Qt 已知问题）
+        # self._add_shadow_effect(container)
+        
         # 设置代理
         self.setWidget(container)
+        
+        # 强制显示所有内容（确保可见性）
+        container.setVisible(True)
+        container.show()
+        self.setVisible(True)
+        self.show()
+        
+        # 禁用缓存以避免渲染问题
+        from PyQt6.QtWidgets import QGraphicsItem
+        self.setCacheMode(QGraphicsItem.CacheMode.NoCache)
+
+    def _create_grip_icon(self):
+        """创建拖拽手柄图标 (GripVertical)"""
+        grip = QLabel()
+        grip.setFixedSize(16, 16)
+
+        # 使用样式绘制两列圆点
+        grip.setStyleSheet(f"""
+            QLabel {{
+                background-color: transparent;
+                qproperty-text: "⋮⋮";
+                color: {'#6B7280' if self.theme == 'dark' else '#9CA3AF'};
+                font-size: 12px;
+                font-weight: bold;
+                letter-spacing: -2px;
+            }}
+        """)
+
+        grip.setText("⋮⋮")
+        grip.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        grip.setCursor(Qt.CursorShape.SizeAllCursor)
+
+        return grip
+
+    def _update_container_style(self, container: QFrame, selected: bool = False):
+        """更新容器样式"""
+        if selected:
+            # 选中状态：蓝色边框
+            border_color = "#0A84FF"
+            border_width = 2
+        else:
+            # 未选中状态：灰色边框
+            if self.theme == 'dark':
+                border_color = "#3A3A3A"
+            else:
+                border_color = "#E5E7EB"
+            border_width = 1
+
+        bg_color = '#1E1E1E' if self.theme == 'dark' else '#FFFFFF'
+
+        container.setStyleSheet(f"""
+            QFrame#widgetContainer {{
+                background-color: {bg_color};
+                border: {border_width}px solid {border_color};
+                border-radius: 8px;
+            }}
+        """)
+
+    def _add_shadow_effect(self, widget: QWidget):
+        """为 Widget 添加阴影效果"""
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(12)
+        shadow.setColor(QColor(0, 0, 0, int(38 * 0.15)))  # 15% 透明度
+        shadow.setOffset(0, 4)  # 垂直偏移 4px
+        widget.setGraphicsEffect(shadow)
 
     def set_selected(self, selected: bool):
         """设置选中状态"""
@@ -129,22 +295,7 @@ class WidgetItem(QGraphicsProxyWidget):
         # 更新边框样式
         if hasattr(self, 'widget') and self.widget():
             container = self.widget()
-            if selected:
-                container.setStyleSheet(f"""
-                    QFrame {{
-                        background-color: {'#252525' if self.theme == 'dark' else '#FFFFFF'};
-                        border: 2px solid #0A84FF;
-                        border-radius: 8px;
-                    }}
-                """)
-            else:
-                container.setStyleSheet(f"""
-                    QFrame {{
-                        background-color: {'#252525' if self.theme == 'dark' else '#FFFFFF'};
-                        border: 2px solid {'#3A3A3A' if self.theme == 'dark' else '#E0E0E0'};
-                        border-radius: 8px;
-                    }}
-                """)
+            self._update_container_style(container, selected=selected)
 
     def update_widget(self, updates: Dict[str, Any]):
         """更新 Widget 数据"""
@@ -166,7 +317,7 @@ class WidgetItem(QGraphicsProxyWidget):
 
         # 更新标题
         if 'title' in updates and self.widget():
-            title_bar = self.widget().findChild(QWidget)
+            title_bar = self.widget().findChild(QWidget, "titleBar")
             if title_bar:
                 title_label = title_bar.findChild(QLabel)
                 if title_label:

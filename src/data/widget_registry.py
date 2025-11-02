@@ -211,7 +211,7 @@ def register_builtin_widgets():
         'name': 'Oscilloscope',
         'description': 'Multi-channel waveform display',
         'category': 'Visualization',
-        'icon': '📊'
+        'icon': 'Image_Src/Icon/OsillIcon.svg'  # 使用 SVG 图标路径
     })
 
     WidgetRegistry.register('terminal', TerminalWidget, {

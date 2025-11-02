@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 UniScope - Universal Serial Debugging Hub
 主程序入口

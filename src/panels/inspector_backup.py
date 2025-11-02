@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Inspector 配置面板
-右侧 Widget 属性编辑面板 - 增强版 (实时预览 + 颜色选择器)
+右侧 Widget 属性编辑面板 - 优化版
 """
 
 from PyQt6.QtWidgets import (
@@ -12,7 +12,6 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from typing import Dict, Any, List
-from ..components.color_picker import ColorPicker
 
 
 class SectionLabel(QLabel):
@@ -249,7 +248,7 @@ class ChannelButton(QPushButton):
 
 
 class InspectorPanel(QWidget):
-    """Inspector 配置面板类 - 增强版"""
+    """Inspector 配置面板类 - 优化版"""
 
     config_changed = pyqtSignal(dict)  # 发射配置变更
 
@@ -258,7 +257,6 @@ class InspectorPanel(QWidget):
         self.theme = theme
         self.current_widget = None
         self.channel_buttons: List[ChannelButton] = []
-        self.live_preview_enabled = True  # 实时预览开关
 
         self.setFixedWidth(320)
         self._setup_ui()
@@ -294,12 +292,6 @@ class InspectorPanel(QWidget):
 
     def _create_header(self) -> QWidget:
         """创建标题栏"""
-        header_widget = QWidget()
-        header_layout = QVBoxLayout(header_widget)
-        header_layout.setContentsMargins(0, 0, 0, 0)
-        header_layout.setSpacing(0)
-
-        # 顶部标题栏
         header = QWidget()
         header.setFixedHeight(56)
         header.setObjectName("inspectorHeader")
@@ -319,32 +311,7 @@ class InspectorPanel(QWidget):
 
         layout.addStretch()
 
-        header_layout.addWidget(header)
-
-        # 实时预览开关
-        preview_bar = QWidget()
-        preview_bar.setObjectName("previewBar")
-        preview_layout = QHBoxLayout(preview_bar)
-        preview_layout.setContentsMargins(16, 8, 16, 8)
-
-        preview_icon = QLabel("👁️")
-        preview_icon.setStyleSheet("font-size: 14px;")
-        preview_layout.addWidget(preview_icon)
-
-        preview_label = QLabel("Live Preview")
-        preview_label.setStyleSheet("font-size: 12px; color: #9CA3AF;")
-        preview_layout.addWidget(preview_label)
-
-        preview_layout.addStretch()
-
-        self.preview_checkbox = QCheckBox()
-        self.preview_checkbox.setChecked(self.live_preview_enabled)
-        self.preview_checkbox.stateChanged.connect(self._toggle_live_preview)
-        preview_layout.addWidget(self.preview_checkbox)
-
-        header_layout.addWidget(preview_bar)
-
-        return header_widget
+        return header
 
     def _create_footer(self) -> QWidget:
         """创建底部按钮栏"""
@@ -525,27 +492,6 @@ class InspectorPanel(QWidget):
         grid_widget.setLayout(grid_layout)
         self.scroll_layout.addWidget(grid_widget)
 
-        self.scroll_layout.addSpacing(12)
-
-        # 线条颜色选择器
-        color_label = SectionLabel("Line Colors")
-        self.scroll_layout.addWidget(color_label)
-
-        # 为第一个通道添加颜色选择器（演示）
-        if self.current_widget and 'dataBinding' in self.current_widget:
-            channels = self.current_widget['dataBinding'].get('channels', [])
-            if channels:
-                channel_label = QLabel(f"Channel {channels[0]}:")
-                channel_label.setStyleSheet("font-size: 12px; margin-top: 8px; margin-bottom: 4px;")
-                self.scroll_layout.addWidget(channel_label)
-
-                # 获取当前颜色（默认使用第一个预设颜色）
-                current_color = config.get('lineColor', '#0A84FF')
-
-                color_picker = ColorPicker(current_color, self.theme)
-                color_picker.color_changed.connect(lambda c: self._update_widget_config('lineColor', c))
-                self.scroll_layout.addWidget(color_picker)
-
     def _add_terminal_settings(self, config: Dict):
         """终端配置"""
         # Display Mode
@@ -661,16 +607,11 @@ class InspectorPanel(QWidget):
         chart_combo.currentTextChanged.connect(lambda v: self._update_widget_config('chartType', v))
         self.scroll_layout.addWidget(chart_combo)
 
-    def _toggle_live_preview(self, state):
-        """切换实时预览"""
-        self.live_preview_enabled = (state == 2)  # Qt.CheckState.Checked = 2
-
     def _update_config(self, key: str, value: Any):
         """更新基本配置"""
         if self.current_widget:
             self.current_widget[key] = value
-            if self.live_preview_enabled:
-                self.config_changed.emit({key: value})
+            self.config_changed.emit({key: value})
 
     def _update_widget_config(self, key: str, value: Any):
         """更新 Widget 配置"""
@@ -678,8 +619,7 @@ class InspectorPanel(QWidget):
             if 'config' not in self.current_widget:
                 self.current_widget['config'] = {}
             self.current_widget['config'][key] = value
-            if self.live_preview_enabled:
-                self.config_changed.emit({'config': self.current_widget['config']})
+            self.config_changed.emit({'config': self.current_widget['config']})
 
     def _update_channels(self):
         """更新通道绑定"""

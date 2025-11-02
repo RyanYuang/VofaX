@@ -8,8 +8,8 @@ from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QLabel, QPushButton,
     QMenu, QFrame
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QPropertyAnimation, QEasingCurve
-from PyQt6.QtGui import QPainter, QColor, QLinearGradient, QPen, QBrush
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QPropertyAnimation, QEasingCurve, pyqtProperty
+from PyQt6.QtGui import QPainter, QColor, QLinearGradient, QPen, QBrush, QAction
 
 
 class ConnectionBadge(QWidget):
@@ -23,14 +23,27 @@ class ConnectionBadge(QWidget):
         self.port_text = "Not Connected"
         self.theme = 'dark'
 
+        # 背景颜色（会在 paintEvent 中使用）
+        self.bg_color = QColor("#0A84FF")  # 默认浅蓝色
+        self.bg_color.setAlpha(180)  # 半透明
+        self.hover_color = QColor("#0066CC")
+        self.hover_color.setAlpha(200)
+        self.is_hovered = False
+
+        # 设置 objectName 以便精确控制样式
+        self.setObjectName("connectionBadge")
+
         self.setFixedHeight(28)
         self.setMinimumWidth(120)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
+        # 启用鼠标跟踪以支持 hover 效果
+        self.setMouseTracking(True)
+
         # 创建布局和标签
         from PyQt6.QtWidgets import QHBoxLayout
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(22, 4, 12, 4)  # 左边留 22px 给圆点 (12px margin + 10px 圆点区域)
+        layout.setContentsMargins(35, 4, 12, 4)  # 左边留 22px 给圆点 (12px margin + 10px 圆点区域)
         layout.setSpacing(0)
 
         # 文字标签
@@ -44,6 +57,9 @@ class ConnectionBadge(QWidget):
         # 延迟创建动画，确保 Property 已注册
         self.pulse_animation = None
         QTimer.singleShot(0, self._init_animation)
+
+        # 应用初始样式（灰色）
+        self._update_style()
 
     def _init_animation(self):
         """初始化动画"""
@@ -62,7 +78,7 @@ class ConnectionBadge(QWidget):
     def getPulseOpacity(self) -> float:
         return self._pulse_opacity
 
-    pulseOpacity = property(getPulseOpacity, setPulseOpacity)
+    pulseOpacity = pyqtProperty(float, fget=getPulseOpacity, fset=setPulseOpacity)
 
     def set_connected(self, connected: bool, port_text: str = ""):
         """设置连接状态"""
@@ -90,26 +106,23 @@ class ConnectionBadge(QWidget):
     def _update_style(self):
         """更新样式"""
         if self.is_connected:
-            bg_color = "#30D158"
+            # 连接状态：浅绿色
+            self.bg_color = QColor("#30D158")
+            self.bg_color.setAlpha(180)  # 半透明 (0-255, 180约为70%透明度)
+            self.hover_color = QColor("#28A745")
+            self.hover_color.setAlpha(200)  # hover时稍微不透明一点
             text_color = "#FFFFFF"
         else:
-            if self.theme == 'dark':
-                bg_color = "#374151"
-                text_color = "#9CA3AF"
-            else:
-                bg_color = "#E5E7EB"
-                text_color = "#6B7280"
+            # 未连接状态：浅蓝色
+            self.bg_color = QColor("#0A84FF")
+            self.bg_color.setAlpha(180)  # 半透明
+            self.hover_color = QColor("#0066CC")
+            self.hover_color.setAlpha(200)  # hover时稍微不透明一点
+            text_color = "#FFFFFF"
 
+        # 只设置文字颜色，背景色在 paintEvent 中绘制
         self.setStyleSheet(f"""
-            ConnectionBadge {{
-                background-color: {bg_color};
-                border-radius: 14px;
-                padding: 0px;
-            }}
-            ConnectionBadge:hover {{
-                background-color: {self._get_hover_color(bg_color)};
-            }}
-            QLabel {{
+            QWidget#connectionBadge QLabel {{
                 color: {text_color};
                 font-size: 13px;
                 font-weight: 500;
@@ -117,33 +130,39 @@ class ConnectionBadge(QWidget):
                 border: none;
             }}
         """)
+        self.update()  # 触发重绘
 
     def _get_hover_color(self, color: str) -> str:
         """获取 Hover 颜色"""
         hover_map = {
-            "#30D158": "#28A745",
-            "#374151": "#4B5563",
-            "#E5E7EB": "#D1D5DB"
+            "#30D158": "#28A745",  # 绿色 -> 深绿色（连接状态）
+            "#0A84FF": "#0066CC",  # 蓝色 -> 深蓝色（未连接状态）
         }
         return hover_map.get(color, color)
 
     def paintEvent(self, event):
-        """绘制事件 - 绘制动画圆点"""
-        super().paintEvent(event)
-
-        if not self.is_connected:
-            return
-
+        """绘制事件 - 绘制背景和状态指示圆点"""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        # 绘制脉动圆点（在标签左侧）
-        dot_x = 16  # 距离左边 16px
-        dot_y = self.height() // 2
-        dot_radius = 3
+        # 绘制圆角矩形背景
+        current_color = self.hover_color if self.is_hovered else self.bg_color
+        painter.setBrush(QBrush(current_color))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawRoundedRect(0, 0, self.width(), self.height(), 14, 14)
 
-        # 圆点颜色
-        dot_color = QColor(255, 255, 255, int(self._pulse_opacity * 255))
+        # 圆点位置（在标签左侧）
+        dot_x = 25  # 距离左边 16px
+        dot_y = self.height() // 2
+        dot_radius = 4  # 圆点半径
+
+        if self.is_connected:
+            # 连接状态：绿色圆点（带脉动动画）
+            dot_color = QColor(48, 209, 88, int(self._pulse_opacity * 255))  # #30D158 绿色
+        else:
+            # 未连接状态：红色圆点（不闪烁）
+            dot_color = QColor(255, 69, 58)  # #FF453A 红色
+
         painter.setBrush(QBrush(dot_color))
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawEllipse(dot_x - dot_radius, dot_y - dot_radius, dot_radius * 2, dot_radius * 2)
@@ -152,6 +171,16 @@ class ConnectionBadge(QWidget):
         """鼠标点击"""
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit()
+
+    def enterEvent(self, event):
+        """鼠标进入"""
+        self.is_hovered = True
+        self.update()
+
+    def leaveEvent(self, event):
+        """鼠标离开"""
+        self.is_hovered = False
+        self.update()
 
     def sizeHint(self):
         """建议大小"""
@@ -201,6 +230,7 @@ class TopBar(QWidget):
     template_requested = pyqtSignal(str)  # 'debug', 'sensor', 'protocol'
     save_layout_requested = pyqtSignal()
     export_data_requested = pyqtSignal()
+    recording_clicked = pyqtSignal()
     grid_snap_toggled = pyqtSignal(bool)
     theme_toggled = pyqtSignal()
     connection_clicked = pyqtSignal()
@@ -240,7 +270,7 @@ class TopBar(QWidget):
         layout.addWidget(self.logo)
 
         # 应用名称
-        app_name = QLabel("UniScope")
+        app_name = QLabel("VOFAX")
         app_name.setObjectName("appName")
         app_name.setStyleSheet("font-size: 16px; font-weight: 500; font-family: 'Inter', 'SF Pro', sans-serif;")
         layout.addWidget(app_name)
@@ -258,12 +288,23 @@ class TopBar(QWidget):
         layout = QHBoxLayout()
         layout.setSpacing(8)
 
-        # Templates 下拉菜单
+        # Templates 按钮（带下拉菜单）
         self.templates_btn = self._create_button("📁 Templates", "templatesButton")
-        self.templates_menu = QMenu(self)
-        self.templates_menu.addAction("Debug Mode", lambda: self.template_requested.emit('debug'))
-        self.templates_menu.addAction("Sensor Monitor", lambda: self.template_requested.emit('sensor'))
-        self.templates_menu.addAction("Protocol Test", lambda: self.template_requested.emit('protocol'))
+        self.templates_menu = QMenu(self.templates_btn)
+        
+        # 添加预设模板选项
+        debug_action = QAction("🔧 Debug Template", self.templates_btn)
+        debug_action.triggered.connect(lambda: self.template_requested.emit('debug'))
+        self.templates_menu.addAction(debug_action)
+        
+        sensor_action = QAction("📊 Sensor Template", self.templates_btn)
+        sensor_action.triggered.connect(lambda: self.template_requested.emit('sensor'))
+        self.templates_menu.addAction(sensor_action)
+        
+        protocol_action = QAction("📡 Protocol Template", self.templates_btn)
+        protocol_action.triggered.connect(lambda: self.template_requested.emit('protocol'))
+        self.templates_menu.addAction(protocol_action)
+        
         self.templates_btn.setMenu(self.templates_menu)
         layout.addWidget(self.templates_btn)
 
@@ -276,6 +317,11 @@ class TopBar(QWidget):
         export_btn = self._create_button("📥 Export Data", "exportButton")
         export_btn.clicked.connect(self.export_data_requested.emit)
         layout.addWidget(export_btn)
+
+        # Recording 按钮
+        recording_btn = self._create_button("🔴 Record", "recordingButton")
+        recording_btn.clicked.connect(self.recording_clicked.emit)
+        layout.addWidget(recording_btn)
 
         # 分隔线
         separator1 = self._create_separator()
@@ -455,7 +501,8 @@ class TopBar(QWidget):
 
                 QPushButton#templatesButton,
                 QPushButton#saveButton,
-                QPushButton#exportButton {
+                QPushButton#exportButton,
+                QPushButton#recordingButton {
                     background-color: transparent;
                     color: #FFFFFF;
                     border: 1px solid #374151;
@@ -466,7 +513,8 @@ class TopBar(QWidget):
 
                 QPushButton#templatesButton:hover,
                 QPushButton#saveButton:hover,
-                QPushButton#exportButton:hover {
+                QPushButton#exportButton:hover,
+                QPushButton#recordingButton:hover {
                     background-color: #374151;
                 }
 
@@ -490,6 +538,8 @@ class TopBar(QWidget):
                     border: none;
                 }
             """)
+            # 重新应用 ConnectionBadge 样式（防止被 TopBar 样式覆盖）
+            self.connection_badge._update_style()
         else:  # light theme
             self.setStyleSheet("""
                 TopBar {
@@ -503,7 +553,8 @@ class TopBar(QWidget):
 
                 QPushButton#templatesButton,
                 QPushButton#saveButton,
-                QPushButton#exportButton {
+                QPushButton#exportButton,
+                QPushButton#recordingButton {
                     background-color: transparent;
                     color: #1F2937;
                     border: 1px solid #D1D5DB;
@@ -514,7 +565,8 @@ class TopBar(QWidget):
 
                 QPushButton#templatesButton:hover,
                 QPushButton#saveButton:hover,
-                QPushButton#exportButton:hover {
+                QPushButton#exportButton:hover,
+                QPushButton#recordingButton:hover {
                     background-color: #F3F4F6;
                 }
 
@@ -538,6 +590,8 @@ class TopBar(QWidget):
                     border: none;
                 }
             """)
+            # 重新应用 ConnectionBadge 样式（防止被 TopBar 样式覆盖）
+            self.connection_badge._update_style()
 
         self._update_grid_button_style()
         self._update_menu_theme()

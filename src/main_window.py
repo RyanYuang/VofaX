@@ -19,8 +19,12 @@ from .panels.inspector import InspectorPanel
 from .canvas.graphics_view import GraphicsView
 from .utils.theme import ThemeManager
 from .data.channel_manager import ChannelManager
+from .data.data_recorder import DataRecorder
 from .dialogs.connection_dialog import ConnectionDialog
+from .dialogs.recording_dialog import RecordingDialog
+from .dialogs.template_manager import TemplateManager
 from .components.top_bar import TopBar
+from .serial.serial_manager import SerialManager
 
 
 class MainWindow(QMainWindow):
@@ -37,12 +41,21 @@ class MainWindow(QMainWindow):
         # 初始化管理器
         self.theme_manager = ThemeManager()
         self.channel_manager = ChannelManager()
+        self.serial_manager = SerialManager(self.channel_manager)
+        self.data_recorder = DataRecorder(self.channel_manager)
 
         # 状态变量
         self.current_theme = 'dark'
         self.is_connected = False
         self.grid_snap = True
         self.current_layout_path = None
+
+        # 连接串口管理器信号
+        self.serial_manager.connected.connect(self._on_serial_connected)
+        self.serial_manager.disconnected.connect(self._on_serial_disconnected)
+        self.serial_manager.error_occurred.connect(self._on_serial_error)
+        self.serial_manager.connection_lost.connect(self._on_serial_connection_lost)
+        self.serial_manager.rx_tx_stats.connect(self.update_rx_tx)
 
         # 构建UI
         self._create_top_bar()
@@ -60,6 +73,7 @@ class MainWindow(QMainWindow):
         self.top_bar.template_requested.connect(self._load_template)
         self.top_bar.save_layout_requested.connect(self._save_layout)
         self.top_bar.export_data_requested.connect(self._export_data)
+        self.top_bar.recording_clicked.connect(self._show_recording_dialog)
         self.top_bar.grid_snap_toggled.connect(self._toggle_grid_snap)
         self.top_bar.theme_toggled.connect(self._toggle_theme)
         self.top_bar.connection_clicked.connect(self._show_connection_dialog)
@@ -327,13 +341,24 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save layout:\n{str(e)}")
 
-    def _load_template(self, template_name: str):
-        """加载预设模板"""
-        template_path = f"layouts/{template_name}.json"
-        if Path(template_path).exists():
-            self._load_layout_from_file(template_path)
+    def _load_template(self, template_name: str = None):
+        """加载预设模板或打开模板管理器"""
+        # 如果提供了模板名称，直接加载
+        if template_name:
+            template_path = f"layouts/{template_name}.json"
+            if Path(template_path).exists():
+                self._load_layout_from_file(template_path)
+            else:
+                QMessageBox.warning(self, "Template Not Found", f"Template '{template_name}' not found.")
         else:
-            QMessageBox.warning(self, "Template Not Found", f"Template '{template_name}' not found.")
+            # 打开模板管理器
+            self._show_template_manager()
+
+    def _show_template_manager(self):
+        """显示模板管理器"""
+        dialog = TemplateManager(self.current_theme, self)
+        dialog.template_selected.connect(self._load_layout_from_file)
+        dialog.exec()
 
     def _export_data(self):
         """导出数据"""
@@ -351,7 +376,43 @@ class MainWindow(QMainWindow):
 
         dialog.exec()
 
+    def _show_recording_dialog(self):
+        """显示录制对话框"""
+        # 创建对话框（如果不存在）
+        if not hasattr(self, 'recording_dialog') or self.recording_dialog is None:
+            self.recording_dialog = RecordingDialog(
+                self.data_recorder,
+                self.channel_manager,
+                self.current_theme,
+                self
+            )
+
+        # 显示对话框
+        self.recording_dialog.show()
+        self.recording_dialog.raise_()
+        self.recording_dialog.activateWindow()
+
     def _on_serial_connect(self, port: str, baudrate: int, databits: int, stopbits: int, parity: str):
+        """串口连接请求回调（来自 ConnectionDialog）"""
+        # 使用 SerialManager 连接串口
+        success = self.serial_manager.connect(
+            port=port,
+            baudrate=baudrate,
+            databits=databits,
+            stopbits=int(stopbits),
+            parity=parity,
+            protocol='firewater',  # 默认使用 FireWater 协议
+            channel_count=15
+        )
+
+        if not success:
+            QMessageBox.critical(
+                self,
+                "Connection Failed",
+                f"Failed to connect to {port}"
+            )
+
+    def _on_serial_connected(self, port: str, baudrate: int):
         """串口连接成功回调"""
         self.is_connected = True
 
@@ -361,23 +422,56 @@ class MainWindow(QMainWindow):
         # 更新状态栏
         self.status_label.setText(f"Connected to {port}")
 
-        # TODO: 在 Phase 5 中实现真实的串口连接
-        # 目前仅更新 UI 状态
+        # 显示成功提示
         QMessageBox.information(
             self,
             "Connected",
-            f"Connected to {port}\n"
+            f"Successfully connected to {port}\n"
             f"Baudrate: {baudrate}\n"
-            f"Data Bits: {databits}\n"
-            f"Stop Bits: {stopbits}\n"
-            f"Parity: {parity}"
+            f"Protocol: FireWater\n\n"
+            f"Now receiving data..."
+        )
+
+    def _on_serial_disconnected(self):
+        """串口断开回调"""
+        self.is_connected = False
+
+        # 更新 TopBar 连接状态
+        self.top_bar.set_connected(False, "")
+
+        # 更新状态栏
+        self.status_label.setText("Disconnected")
+
+        # 重置 RX/TX 统计
+        self.update_rx_tx(0, 0)
+
+    def _on_serial_error(self, error_msg: str):
+        """串口错误回调"""
+        QMessageBox.critical(
+            self,
+            "Serial Error",
+            f"Serial communication error:\n{error_msg}"
+        )
+
+    def _on_serial_connection_lost(self):
+        """连接丢失回调"""
+        self.is_connected = False
+
+        # 更新 UI
+        self.top_bar.set_connected(False, "")
+        self.status_label.setText("Connection lost")
+
+        # 显示警告
+        QMessageBox.warning(
+            self,
+            "Connection Lost",
+            "Serial connection has been lost.\n"
+            "Please check the device and reconnect."
         )
 
     def _disconnect(self):
         """断开连接"""
-        self.is_connected = False
-        self.connection_label.setText("⚫ Disconnected")
-        self.status_label.setText("Disconnected")
+        self.serial_manager.disconnect()
 
     def _show_about(self):
         """显示关于对话框"""
