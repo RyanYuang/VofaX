@@ -12,6 +12,66 @@ from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QPropertyAnimation, QEasingCurv
 from PyQt6.QtGui import QPainter, QColor, QLinearGradient, QPen, QBrush, QAction
 
 
+class ActivityIndicator(QWidget):
+    """TX/RX 活动指示灯 (带闪烁动画)"""
+
+    def __init__(self, label: str, color: QColor, parent=None):
+        super().__init__(parent)
+        self.label_text = label
+        self.active_color = color
+        self.inactive_color = QColor(60, 60, 60)  # 深灰色
+        self.is_active = False
+        self._opacity = 0.0
+
+        self.setFixedSize(60, 24)
+
+        # 闪烁定时器
+        self.flash_timer = QTimer()
+        self.flash_timer.timeout.connect(self._reset_indicator)
+        self.flash_timer.setSingleShot(True)
+
+    def flash(self):
+        """触发闪烁效果"""
+        self.is_active = True
+        self._opacity = 1.0
+        self.update()
+
+        # 150ms 后重置
+        self.flash_timer.stop()
+        self.flash_timer.start(150)
+
+    def _reset_indicator(self):
+        """重置指示灯"""
+        self.is_active = False
+        self._opacity = 0.0
+        self.update()
+
+    def paintEvent(self, event):
+        """绘制指示灯"""
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        # 绘制圆形指示灯
+        dot_radius = 4
+        dot_x = 8
+        dot_y = self.height() // 2
+
+        # 根据状态选择颜色
+        if self.is_active:
+            color = self.active_color
+            color.setAlphaF(self._opacity)
+        else:
+            color = self.inactive_color
+
+        painter.setBrush(QBrush(color))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawEllipse(dot_x - dot_radius, dot_y - dot_radius, dot_radius * 2, dot_radius * 2)
+
+        # 绘制文字标签
+        painter.setPen(QPen(QColor(180, 180, 180)))
+        painter.drawText(20, 0, 40, self.height(), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, self.label_text)
+
+
 class ConnectionBadge(QWidget):
     """连接状态 Badge (带动画圆点)"""
 
@@ -261,7 +321,7 @@ class TopBar(QWidget):
         layout.addLayout(right_area)
 
     def _create_left_area(self):
-        """创建左侧区域 (Logo + 名称 + 连接状态)"""
+        """创建左侧区域 (Logo + 名称 + 连接状态 + TX/RX 指示灯)"""
         layout = QHBoxLayout()
         layout.setSpacing(12)
 
@@ -280,6 +340,18 @@ class TopBar(QWidget):
         self.connection_badge.set_theme(self.theme)
         self.connection_badge.clicked.connect(self.connection_clicked.emit)
         layout.addWidget(self.connection_badge)
+
+        # 添加分隔线
+        separator = self._create_separator()
+        layout.addWidget(separator)
+
+        # TX 指示灯 (橙色)
+        self.tx_indicator = ActivityIndicator("TX", QColor(255, 165, 0))  # 橙色
+        layout.addWidget(self.tx_indicator)
+
+        # RX 指示灯 (绿色)
+        self.rx_indicator = ActivityIndicator("RX", QColor(48, 209, 88))  # 绿色
+        layout.addWidget(self.rx_indicator)
 
         return layout
 
@@ -334,8 +406,8 @@ class TopBar(QWidget):
         layout.addWidget(self.grid_btn)
 
         # 分隔线
-        separator2 = self._create_separator()
-        layout.addWidget(separator2)
+        separator = self._create_separator()
+        layout.addWidget(separator)
 
         # 主题切换按钮
         self.theme_btn = self._create_icon_button("🌙", "themeButton")

@@ -7,7 +7,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 import serial
 import struct
 import time
-from typing import Optional, Dict
+from typing import Optional, Dict, Union
 import logging
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ class SerialThread(QThread):
     """
 
     # 信号定义
-    data_received = pyqtSignal(dict)  # {channel: value} 批量数据
+    data_received = pyqtSignal(dict)  # {channel: value} 批量数据，value 可以是 float 或 str
     error_occurred = pyqtSignal(str)  # 错误信息
     connection_lost = pyqtSignal()  # 连接丢失
     rx_tx_stats = pyqtSignal(int, int)  # RX bytes, TX bytes
@@ -103,6 +103,9 @@ class SerialThread(QThread):
                         data = self.serial_port.read(self.serial_port.in_waiting)
                         if data:
                             self.rx_bytes += len(data)
+                            # Debug: 打印接收到的原始数据（使用 INFO 级别确保能看到）
+                            logger.info(f"[RX] Received {len(data)} bytes: {data.hex()}")
+                            logger.info(f"[RX] ASCII preview: {data[:50]}")  # 前50字节的ASCII预览
                             self._process_data(data)
 
                             # 每秒更新一次统计
@@ -153,6 +156,8 @@ class SerialThread(QThread):
 
             if tail_index == -1:
                 # 未找到尾巴，等待更多数据
+                logger.info(f"[FireWater] No tail found in buffer (size: {len(self.buffer)})")
+                logger.info(f"[FireWater] Buffer preview (hex): {self.buffer[:64].hex()}")
                 # 但防止缓冲区过大
                 if len(self.buffer) > 1024:
                     logger.warning("Buffer overflow, clearing")
@@ -161,6 +166,7 @@ class SerialThread(QThread):
 
             # 提取完整包 (不包含尾巴)
             packet = bytes(self.buffer[:tail_index])
+            logger.debug(f"[FireWater] Found packet: {len(packet)} bytes at tail_index={tail_index}")
 
             # 移除已处理的数据
             self.buffer = self.buffer[tail_index + 4:]
@@ -181,8 +187,12 @@ class SerialThread(QThread):
                     if i < self.channel_count:
                         data_dict[f'I{i}'] = float(value)
 
+                # Debug: 打印解析后的数据（使用 INFO 确保能看到）
+                logger.info(f"[FireWater] ✓ Parsed data: {data_dict}")
+
                 # 发射信号
                 self.data_received.emit(data_dict)
+                logger.info(f"[FireWater] ✓ Emitted data_received signal")
 
             except struct.error as e:
                 logger.error(f"Failed to unpack FireWater packet: {e}")
@@ -219,22 +229,32 @@ class SerialThread(QThread):
         解析 ASCII 协议
         格式: "CH0:1.23,CH1:4.56,CH2:7.89\n"
         或: "1.23,4.56,7.89\n"
+        或: 任意文本行（直接显示）
         """
-        while b'\n' in self.buffer:
+        while b'\n' in self.buffer or b'\r\n' in self.buffer:
             # 查找换行符
             line_end = self.buffer.find(b'\n')
+            if line_end == -1:
+                line_end = self.buffer.find(b'\r\n')
+
             line = bytes(self.buffer[:line_end])
-            self.buffer = self.buffer[line_end + 1:]
+            # 移除 \r\n 或 \n
+            if b'\r\n' in self.buffer[:line_end+2]:
+                self.buffer = self.buffer[line_end + 2:]
+            else:
+                self.buffer = self.buffer[line_end + 1:]
 
             try:
                 line_str = line.decode('utf-8').strip()
                 if not line_str:
                     continue
 
+                logger.info(f"[ASCII] Received line: {line_str}")
+
                 data_dict = {}
 
                 # 尝试解析 "CH0:1.23,CH1:4.56" 格式
-                if ':' in line_str:
+                if ':' in line_str and ',' in line_str:
                     parts = line_str.split(',')
                     for part in parts:
                         if ':' in part:
@@ -246,13 +266,24 @@ class SerialThread(QThread):
                             data_dict[channel] = float(value.strip())
 
                 # 尝试解析 "1.23,4.56,7.89" 格式
+                elif ',' in line_str:
+                    try:
+                        values = [float(v.strip()) for v in line_str.split(',')]
+                        for i, value in enumerate(values):
+                            if i < self.channel_count:
+                                data_dict[f'I{i}'] = value
+                    except ValueError:
+                        # 不是数字格式，作为文本处理
+                        # 将整行文本放到 I0 通道（这样 Terminal 可以显示）
+                        data_dict['RAW'] = line_str
+
+                # 纯文本行（没有逗号分隔）
                 else:
-                    values = [float(v.strip()) for v in line_str.split(',')]
-                    for i, value in enumerate(values):
-                        if i < self.channel_count:
-                            data_dict[f'I{i}'] = value
+                    # 将文本放到特殊的 RAW 通道
+                    data_dict['RAW'] = line_str
 
                 if data_dict:
+                    logger.info(f"[ASCII] Parsed data: {data_dict}")
                     self.data_received.emit(data_dict)
 
             except (ValueError, UnicodeDecodeError) as e:

@@ -6,10 +6,10 @@ UniScope 主窗口
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
     QMenuBar, QMenu, QStatusBar, QToolBar, QLabel,
-    QMessageBox, QFileDialog
+    QMessageBox, QFileDialog, QGraphicsOpacityEffect
 )
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QAction, QKeySequence
+from PyQt6.QtCore import Qt, pyqtSignal, QPropertyAnimation, QEasingCurve, QTimer, QVariantAnimation
+from PyQt6.QtGui import QAction, QKeySequence, QColor
 import json
 from pathlib import Path
 from typing import Optional
@@ -49,6 +49,10 @@ class MainWindow(QMainWindow):
         self.is_connected = False
         self.grid_snap = True
         self.current_layout_path = None
+        self.is_transitioning = False  # 主题过渡标志
+
+        # 创建主题过渡遮罩
+        self.transition_overlay = None
 
         # 连接串口管理器信号
         self.serial_manager.connected.connect(self._on_serial_connected)
@@ -56,6 +60,8 @@ class MainWindow(QMainWindow):
         self.serial_manager.error_occurred.connect(self._on_serial_error)
         self.serial_manager.connection_lost.connect(self._on_serial_connection_lost)
         self.serial_manager.rx_tx_stats.connect(self.update_rx_tx)
+        self.serial_manager.data_received_signal.connect(self._on_rx_activity)
+        self.serial_manager.data_sent_signal.connect(self._on_tx_activity)
 
         # 构建UI
         self._create_top_bar()
@@ -240,7 +246,7 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.canvas, 1)  # stretch=1
 
         # 右侧：Inspector 面板（初始隐藏）
-        self.inspector = InspectorPanel(self.current_theme)
+        self.inspector = InspectorPanel(self.current_theme, self.channel_manager)
         self.inspector.setVisible(False)
         main_layout.addWidget(self.inspector)
 
@@ -248,6 +254,8 @@ class MainWindow(QMainWindow):
         self.widget_library.widget_requested.connect(self.canvas.add_widget)
         self.canvas.widget_selected.connect(self._on_widget_selected)
         self.inspector.config_changed.connect(self.canvas.update_selected_widget)
+        self.inspector.delete_requested.connect(self.canvas.delete_selected_widget)
+        self.inspector.duplicate_requested.connect(self.canvas.duplicate_selected_widget)
 
         # 将内容区域添加到主布局
         main_v_layout.addLayout(main_layout)
@@ -261,13 +269,134 @@ class MainWindow(QMainWindow):
     # ==================== Slots ====================
 
     def _toggle_theme(self):
-        """切换主题"""
+        """切换主题（带颜色渐变动画）"""
+        if self.is_transitioning:
+            return  # 如果正在过渡，忽略请求
+
+        self.is_transitioning = True
+
+        # 确定起始和结束颜色
+        if self.current_theme == 'dark':
+            # 从暗色切换到亮色：黑色 → 白色
+            start_color = QColor('#0D0D0D')
+            end_color = QColor('#FAFAFA')
+        else:
+            # 从亮色切换到暗色：白色 → 黑色
+            start_color = QColor('#FAFAFA')
+            end_color = QColor('#0D0D0D')
+
+        # 创建过渡遮罩
+        if not self.transition_overlay:
+            self.transition_overlay = QWidget(self.centralWidget())
+            self.transition_overlay.setObjectName("themeTransitionOverlay")
+
+        # 设置遮罩几何和样式
+        self.transition_overlay.setGeometry(self.centralWidget().rect())
+        self.transition_overlay.raise_()
+
+        # 创建透明度效果
+        opacity_effect = QGraphicsOpacityEffect(self.transition_overlay)
+        self.transition_overlay.setGraphicsEffect(opacity_effect)
+        opacity_effect.setOpacity(1.0)
+
+        self.transition_overlay.setStyleSheet(f"background-color: {start_color.name()};")
+        self.transition_overlay.show()
+
+        # 追踪是否已切换主题
+        self._theme_switched = False
+
+        # 保存起始和结束颜色，用于手动插值
+        self._start_color = start_color
+        self._end_color = end_color
+
+        # 使用整数动画（0-1000）来驱动颜色插值
+        def update_color(value):
+            # value 范围 0-1000，映射到 0.0-1.0
+            progress = value / 1000.0
+
+            # 手动插值 RGB 分量
+            r = int(self._start_color.red() + (self._end_color.red() - self._start_color.red()) * progress)
+            g = int(self._start_color.green() + (self._end_color.green() - self._start_color.green()) * progress)
+            b = int(self._start_color.blue() + (self._end_color.blue() - self._start_color.blue()) * progress)
+
+            interpolated_color = QColor(r, g, b)
+
+            if self.transition_overlay and self.transition_overlay.isVisible():
+                self.transition_overlay.setStyleSheet(f"background-color: {interpolated_color.name()};")
+
+        # 创建颜色动画（使用整数 0-1000）
+        self.color_animation = QVariantAnimation(self)
+        self.color_animation.setDuration(600)
+        self.color_animation.setStartValue(0)
+        self.color_animation.setEndValue(1000)
+        self.color_animation.setEasingCurve(QEasingCurve.Type.InOutCubic)
+        self.color_animation.valueChanged.connect(update_color)
+
+        # 使用定时器在中途切换主题（更可靠）
+        QTimer.singleShot(300, self._perform_theme_switch_if_needed)
+
+        # 动画完成后淡出遮罩
+        def on_animation_finished():
+            if self.transition_overlay:
+                opacity_effect = self.transition_overlay.graphicsEffect()
+                if opacity_effect:
+                    self.fade_out_animation = QPropertyAnimation(opacity_effect, b"opacity")
+                    self.fade_out_animation.setDuration(200)
+                    self.fade_out_animation.setStartValue(1.0)
+                    self.fade_out_animation.setEndValue(0.0)
+                    self.fade_out_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+                    def on_fade_out_finished():
+                        self._cleanup_transition()
+
+                    self.fade_out_animation.finished.connect(on_fade_out_finished)
+                    self.fade_out_animation.start()
+                else:
+                    self._cleanup_transition()
+            else:
+                self._cleanup_transition()
+
+        self.color_animation.finished.connect(on_animation_finished)
+
+        # 开始颜色渐变动画
+        self.color_animation.start()
+
+    def _perform_theme_switch_if_needed(self):
+        """在动画中途切换主题（只执行一次）"""
+        if not self._theme_switched:
+            self._perform_theme_switch()
+            self._theme_switched = True
+
+    def _perform_theme_switch(self):
+        """执行实际的主题切换"""
+        # 切换主题
         self.current_theme = 'light' if self.current_theme == 'dark' else 'dark'
         self._apply_theme(self.current_theme)
         self.top_bar.set_theme(self.current_theme)
         self.canvas.set_theme(self.current_theme)
         self.widget_library.set_theme(self.current_theme)
         self.inspector.set_theme(self.current_theme)
+
+    def _cleanup_transition(self):
+        """清理过渡效果"""
+        if self.transition_overlay:
+            self.transition_overlay.hide()
+            # 重置透明度
+            opacity_effect = self.transition_overlay.graphicsEffect()
+            if opacity_effect:
+                opacity_effect.setOpacity(1.0)
+
+        self.is_transitioning = False
+        if hasattr(self, '_theme_switched'):
+            delattr(self, '_theme_switched')
+
+    def resizeEvent(self, event):
+        """窗口大小调整事件"""
+        super().resizeEvent(event)
+
+        # 更新过渡遮罩的大小
+        if self.transition_overlay and self.centralWidget():
+            self.transition_overlay.setGeometry(self.centralWidget().rect())
 
     def _toggle_grid_snap(self, checked: bool):
         """切换网格吸附"""
@@ -401,7 +530,7 @@ class MainWindow(QMainWindow):
             databits=databits,
             stopbits=int(stopbits),
             parity=parity,
-            protocol='firewater',  # 默认使用 FireWater 协议
+            protocol='ascii',  # 使用 ASCII 协议解析文本数据
             channel_count=15
         )
 
@@ -498,3 +627,13 @@ class MainWindow(QMainWindow):
         """更新 RX/TX 统计"""
         self.rx_label.setText(f"RX: {rx_bytes} B")
         self.tx_label.setText(f"TX: {tx_bytes} B")
+
+    def _on_rx_activity(self):
+        """RX 活动回调 - 闪烁 RX 指示灯"""
+        if hasattr(self.top_bar, 'rx_indicator'):
+            self.top_bar.rx_indicator.flash()
+
+    def _on_tx_activity(self):
+        """TX 活动回调 - 闪烁 TX 指示灯"""
+        if hasattr(self.top_bar, 'tx_indicator'):
+            self.top_bar.tx_indicator.flash()

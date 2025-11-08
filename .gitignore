@@ -50,3 +50,8 @@ htmlcov/
 *.db
 *.sqlite
 *.sqlite3
+
+# CLAUDE
+CLAUDE.md
+*.sh
+*.md

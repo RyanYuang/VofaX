@@ -5,7 +5,7 @@ BaseWidget - 所有 Widget 的基类
 
 from PyQt6.QtWidgets import QWidget
 from PyQt6.QtCore import QObject, QTimer
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Union
 from abc import ABC, abstractmethod, ABCMeta
 import time
 
@@ -43,17 +43,29 @@ class BaseWidget(QWidget, ABC, metaclass=QABCMeta):
         if self.channel_manager:
             self.channel_manager.batch_updated.connect(self._on_data_received)
 
-    def _on_data_received(self, data: Dict[str, float]):
+    def _on_data_received(self, data: Dict[str, Union[float, str]]):
         """
         数据接收回调（节流前）
 
         Args:
-            data: {channel: value} 字典
+            data: {channel: value} 字典，value 可以是 float 或 str
         """
+        # Debug: 打印接收的数据
+        import logging
+        logger = logging.getLogger(__name__)
+        bound_channels = self.get_bound_channels()
+        logger.info(f"[BaseWidget] Data received: {data}, bound channels: {bound_channels}")
+
+        # RAW 通道总是接收（用于显示原始文本）
+        if 'RAW' in data:
+            self.pending_data['RAW'] = data['RAW']
+            logger.info(f"[BaseWidget] Cached RAW: {data['RAW']}")
+
         # 缓存数据，等待定时器触发批量更新
         for channel, value in data.items():
-            if channel in self.get_bound_channels():
+            if channel in bound_channels:
                 self.pending_data[channel] = value
+                logger.debug(f"[BaseWidget] Cached {channel}: {value}")
 
     def _process_pending_updates(self):
         """处理待更新的数据（节流后）"""
@@ -63,12 +75,12 @@ class BaseWidget(QWidget, ABC, metaclass=QABCMeta):
             self.pending_data.clear()
 
     @abstractmethod
-    def _on_data_update(self, data: Dict[str, float]):
+    def _on_data_update(self, data: Dict[str, Union[float, str]]):
         """
         数据更新回调（已节流）
 
         Args:
-            data: {channel: value} 字典
+            data: {channel: value} 字典，value 可以是 float 或 str
         """
         pass
 

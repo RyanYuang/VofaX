@@ -4,7 +4,7 @@ SerialManager - 串口管理器
 """
 
 from PyQt6.QtCore import QObject, pyqtSignal
-from typing import Optional, Dict
+from typing import Optional, Dict, Union
 import logging
 
 from .serial_thread import SerialThread
@@ -25,6 +25,8 @@ class SerialManager(QObject):
     error_occurred = pyqtSignal(str)  # 错误信息
     connection_lost = pyqtSignal()
     rx_tx_stats = pyqtSignal(int, int)  # RX bytes, TX bytes
+    data_received_signal = pyqtSignal()  # RX 活动指示
+    data_sent_signal = pyqtSignal()  # TX 活动指示
 
     def __init__(self, channel_manager: ChannelManager):
         """
@@ -201,18 +203,22 @@ class SerialManager(QObject):
 
     # ==================== 私有方法 (信号处理) ====================
 
-    def _on_data_received(self, data: Dict[str, float]):
+    def _on_data_received(self, data: Dict[str, Union[float, str]]):
         """
         处理接收到的数据
 
         Args:
-            data: 通道数据字典 {channel: value}
+            data: 通道数据字典 {channel: value}，value 可以是 float 或 str
         """
+        logger.info(f"[SerialManager] _on_data_received called with data: {data}")
+
         # 分发数据到 ChannelManager
         self.channel_manager.update_batch(data)
 
-        # 日志 (调试用)
-        # logger.debug(f"Data received: {data}")
+        # 发射 RX 活动信号 (用于指示灯)
+        logger.info(f"[SerialManager] Emitting data_received_signal for RX indicator")
+        self.data_received_signal.emit()
+        logger.info(f"[SerialManager] data_received_signal emitted")
 
     def _on_error(self, error_msg: str):
         """

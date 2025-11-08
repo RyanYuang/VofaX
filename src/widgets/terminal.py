@@ -3,14 +3,15 @@ TerminalWidget - 终端 Widget (优化版)
 显示串口数据（ASCII/HEX/Decimal）+ 批量更新优化
 """
 
-from PyQt6.QtWidgets import QVBoxLayout, QPlainTextEdit, QHBoxLayout, QLineEdit, QPushButton, QComboBox
+from PyQt6.QtWidgets import QVBoxLayout, QPlainTextEdit, QHBoxLayout, QLineEdit, QComboBox
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
-from typing import Dict, List
+from typing import Dict, List, Union
 from datetime import datetime
 from collections import deque
 
 from .base_widget import BaseWidget
+from ..components.styled_button import SmallButton
 
 
 class TerminalWidget(BaseWidget):
@@ -82,23 +83,35 @@ class TerminalWidget(BaseWidget):
         self.input_field.setPlaceholderText("Enter data to send...")
         input_layout.addWidget(self.input_field, 1)
 
-        send_btn = QPushButton("Send")
+        send_btn = SmallButton("Send", self.theme)
         send_btn.clicked.connect(self._send_data)
         input_layout.addWidget(send_btn)
 
-        clear_btn = QPushButton("Clear")
+        clear_btn = SmallButton("Clear", self.theme)
         clear_btn.clicked.connect(self.text_display.clear)
         input_layout.addWidget(clear_btn)
 
         layout.addLayout(input_layout)
 
-    def _on_data_update(self, data: Dict[str, float]):
+    def _on_data_update(self, data: Dict[str, Union[float, str]]):
         """接收数据更新（已节流）"""
+        # Debug: 打印接收到的数据
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"[Terminal] Received data: {data}, bound channels: {self.get_bound_channels()}")
+
+        # 处理 RAW 文本数据（ASCII 协议的原始文本）
+        if 'RAW' in data:
+            line = self._format_raw_line(data['RAW'])
+            self.pending_lines.append(line)
+            logger.info(f"[Terminal] Added RAW line: {line}")
+
         # 批量处理数据
         for channel in self.get_bound_channels():
             if channel in data:
                 line = self._format_data_line(channel, data[channel])
                 self.pending_lines.append(line)
+                logger.info(f"[Terminal] Added line: {line}")
 
         # 批量追加到显示区域
         if len(self.pending_lines) >= self.batch_size:
@@ -144,6 +157,15 @@ class TerminalWidget(BaseWidget):
             return f"[{timestamp}] {channel}: 0x{int(value):02X}"
         else:  # decimal
             return f"[{timestamp}] {channel}: {value:.2f}"
+
+    def _format_raw_line(self, text: str) -> str:
+        """格式化原始文本行"""
+        timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        # 如果 text 已经是字符串就直接用，否则转换
+        if isinstance(text, (int, float)):
+            # 这是一个数字被当作字符串传递的情况
+            return f"[{timestamp}] {text}"
+        return f"[{timestamp}] {text}"
 
     def _send_data(self):
         """发送数据"""

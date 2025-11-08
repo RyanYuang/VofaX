@@ -10,22 +10,39 @@ License: MIT
 
 import sys
 import logging
+import argparse
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
 from src.main_window import MainWindow
 from src.data.widget_registry import register_builtin_widgets
 from src.utils.plugin_loader import PluginLoader
 
-# 配置日志
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+
+def parse_args():
+    """解析命令行参数"""
+    parser = argparse.ArgumentParser(description='UniScope - Universal Serial Debugging Hub')
+    parser.add_argument(
+        '--log-level',
+        type=str,
+        default='INFO',
+        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+        help='Set logging level (default: INFO)'
+    )
+    return parser.parse_args()
 
 
 def main():
     """应用程序主函数"""
+    # 解析命令行参数
+    args = parse_args()
+
+    # 配置日志
+    logging.basicConfig(
+        level=getattr(logging, args.log_level),
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    logger = logging.getLogger(__name__)
+
     # 启用高DPI支持
     QApplication.setHighDpiScaleFactorRoundingPolicy(
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough

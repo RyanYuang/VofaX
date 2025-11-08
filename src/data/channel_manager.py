@@ -5,8 +5,11 @@
 
 from PyQt6.QtCore import QObject, pyqtSignal
 from collections import deque
-from typing import Dict, List, Deque
+from typing import Dict, List, Deque, Union, Any
 import time
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ChannelManager(QObject):
@@ -72,25 +75,30 @@ class ChannelManager(QObject):
         # 发射信号
         self.channel_updated.emit(channel, value, timestamp)
 
-    def update_batch(self, data: Dict[str, float]):
+    def update_batch(self, data: Dict[str, Union[float, str]]):
         """
         批量更新多个通道
 
         Args:
-            data: 字典 {channel: value}
+            data: 字典 {channel: value}，value 可以是 float 或 str (RAW 文本)
         """
+        logger.info(f"[ChannelManager] update_batch called with data: {data}")
+
         timestamp = time.time()
 
         for channel, value in data.items():
             if channel not in self.current_values:
                 self.current_values[channel] = 0.0
                 self.history[channel] = deque(maxlen=self.history_size)
+                logger.debug(f"[ChannelManager] Added new channel: {channel}")
 
             self.current_values[channel] = value
             self.history[channel].append((timestamp, value))
 
         # 发射批量更新信号
+        logger.info(f"[ChannelManager] Emitting batch_updated signal with {len(data)} channels")
         self.batch_updated.emit(data)
+        logger.info(f"[ChannelManager] batch_updated signal emitted")
 
     def get_current_value(self, channel: str) -> float:
         """
@@ -132,6 +140,15 @@ class ChannelManager(QObject):
             通道名称列表
         """
         return list(self.current_values.keys())
+
+    def get_active_channels(self) -> List[str]:
+        """
+        获取有数据的通道列表（历史记录不为空的通道）
+
+        Returns:
+            有数据的通道名称列表
+        """
+        return [channel for channel, hist in self.history.items() if len(hist) > 0]
 
     def clear_history(self, channel: str = None):
         """

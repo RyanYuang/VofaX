@@ -3,7 +3,7 @@ OscilloscopeWidget - 示波器 Widget (PyQtGraph 版本)
 多通道波形显示 + 高性能实时绘图
 """
 
-from PyQt6.QtWidgets import QVBoxLayout, QWidget, QHBoxLayout, QPushButton, QCheckBox
+from PyQt6.QtWidgets import QVBoxLayout, QWidget, QHBoxLayout, QCheckBox
 from PyQt6.QtCore import QTimer
 import pyqtgraph as pg
 import numpy as np
@@ -11,6 +11,7 @@ from collections import deque
 from typing import Dict
 
 from .base_widget import BaseWidget
+from ..components.styled_button import SmallButton
 
 
 class OscilloscopeWidget(BaseWidget):
@@ -89,14 +90,12 @@ class OscilloscopeWidget(BaseWidget):
         controls_layout = QHBoxLayout()
 
         # 自动缩放按钮
-        self.auto_scale_btn = QPushButton("Auto Scale")
-        self.auto_scale_btn.setFixedHeight(28)
+        self.auto_scale_btn = SmallButton("Auto Scale", self.theme)
         self.auto_scale_btn.clicked.connect(self._auto_scale)
         controls_layout.addWidget(self.auto_scale_btn)
 
         # 清除数据按钮
-        self.clear_btn = QPushButton("Clear")
-        self.clear_btn.setFixedHeight(28)
+        self.clear_btn = SmallButton("Clear", self.theme)
         self.clear_btn.clicked.connect(self._clear_data)
         controls_layout.addWidget(self.clear_btn)
 

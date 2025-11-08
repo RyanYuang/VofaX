@@ -202,6 +202,13 @@ class ChannelButton(QPushButton):
         self.is_selected = checked
         self._update_style()
 
+    def mousePressEvent(self, event):
+        """重写鼠标按下事件，确保状态立即更新"""
+        super().mousePressEvent(event)
+        # 立即更新选中状态和样式
+        self.is_selected = self.isChecked()
+        self._update_style()
+
     def _update_style(self):
         if self.is_selected:
             # 选中状态：蓝色
@@ -252,10 +259,13 @@ class InspectorPanel(QWidget):
     """Inspector 配置面板类 - 增强版"""
 
     config_changed = pyqtSignal(dict)  # 发射配置变更
+    delete_requested = pyqtSignal()  # 请求删除当前 Widget
+    duplicate_requested = pyqtSignal()  # 请求复制当前 Widget
 
-    def __init__(self, theme: str = 'dark'):
+    def __init__(self, theme: str = 'dark', channel_manager=None):
         super().__init__()
         self.theme = theme
+        self.channel_manager = channel_manager
         self.current_widget = None
         self.channel_buttons: List[ChannelButton] = []
         self.live_preview_enabled = True  # 实时预览开关
@@ -437,9 +447,27 @@ class InspectorPanel(QWidget):
         channels_grid.setContentsMargins(0, 0, 0, 0)
         channels_grid.setSpacing(8)
 
-        channel_options = ['I0', 'I1', 'I2', 'I3', 'I4', 'I5', 'I6', 'I7',
-                          'I8', 'I9', 'I10', 'I11', 'I12', 'I13', 'I14']
+        # 获取有数据的通道（如果channel_manager可用）
+        if self.channel_manager:
+            channel_options = self.channel_manager.get_active_channels()
+            # 如果没有活跃通道，显示所有通道
+            if not channel_options:
+                channel_options = ['I0', 'I1', 'I2', 'I3', 'I4', 'I5', 'I6', 'I7',
+                                  'I8', 'I9', 'I10', 'I11', 'I12', 'I13', 'I14']
+        else:
+            # 没有channel_manager时显示所有通道
+            channel_options = ['I0', 'I1', 'I2', 'I3', 'I4', 'I5', 'I6', 'I7',
+                              'I8', 'I9', 'I10', 'I11', 'I12', 'I13', 'I14']
+
         current_channels = widget_data.get('dataBinding', {}).get('channels', [])
+
+        # 如果没有通道可显示，显示提示
+        if not channel_options:
+            hint_label = QLabel("No active channels\nConnect and send data to see channels")
+            hint_label.setStyleSheet("color: #9CA3AF; font-size: 11px; padding: 20px;")
+            hint_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.scroll_layout.addWidget(hint_label)
+            return
 
         for i, channel in enumerate(channel_options):
             row = i // 3
@@ -477,10 +505,23 @@ class InspectorPanel(QWidget):
 
     def _add_oscilloscope_settings(self, config: Dict):
         """示波器配置"""
+        # Protocol
+        protocol_label = QLabel("Protocol")
+        protocol_label.setStyleSheet("font-size: 12px; margin-top: 4px;")
+        self.scroll_layout.addWidget(protocol_label)
+
+        protocol_combo = StyledComboBox(self.theme)
+        protocol_combo.addItems(['FireWater', 'JustFloat', 'ASCII'])
+        protocol_combo.setCurrentText(config.get('protocol', 'FireWater'))
+        protocol_combo.currentTextChanged.connect(lambda v: self._update_widget_config('protocol', v))
+        self.scroll_layout.addWidget(protocol_combo)
+
+        self.scroll_layout.addSpacing(12)
+
         # Time Base
-        label = QLabel(f"Time Base: {config.get('timeBase', 50)}ms/div")
-        label.setStyleSheet("font-size: 12px; margin-top: 4px;")
-        self.scroll_layout.addWidget(label)
+        timebase_label = QLabel(f"Time Base: {config.get('timeBase', 50)}ms/div")
+        timebase_label.setStyleSheet("font-size: 12px; margin-top: 4px;")
+        self.scroll_layout.addWidget(timebase_label)
 
         slider = QSlider(Qt.Orientation.Horizontal)
         slider.setRange(10, 1000)
@@ -488,7 +529,7 @@ class InspectorPanel(QWidget):
         slider.setFixedHeight(32)
 
         def update_timebase(value):
-            label.setText(f"Time Base: {value}ms/div")
+            timebase_label.setText(f"Time Base: {value}ms/div")
             self._update_widget_config('timeBase', value)
 
         slider.valueChanged.connect(update_timebase)
@@ -509,42 +550,15 @@ class InspectorPanel(QWidget):
 
         self.scroll_layout.addSpacing(12)
 
-        # Show Grid
-        grid_layout = QHBoxLayout()
+        # Show Grid (使用垂直布局而不是水平布局)
         grid_label = QLabel("Show Grid")
-        grid_label.setStyleSheet("font-size: 12px;")
-        grid_layout.addWidget(grid_label)
-        grid_layout.addStretch()
+        grid_label.setStyleSheet("font-size: 12px; margin-top: 4px;")
+        self.scroll_layout.addWidget(grid_label)
 
         grid_check = QCheckBox()
         grid_check.setChecked(config.get('showGrid', True))
         grid_check.stateChanged.connect(lambda s: self._update_widget_config('showGrid', bool(s)))
-        grid_layout.addWidget(grid_check)
-
-        grid_widget = QWidget()
-        grid_widget.setLayout(grid_layout)
-        self.scroll_layout.addWidget(grid_widget)
-
-        self.scroll_layout.addSpacing(12)
-
-        # 线条颜色选择器
-        color_label = SectionLabel("Line Colors")
-        self.scroll_layout.addWidget(color_label)
-
-        # 为第一个通道添加颜色选择器（演示）
-        if self.current_widget and 'dataBinding' in self.current_widget:
-            channels = self.current_widget['dataBinding'].get('channels', [])
-            if channels:
-                channel_label = QLabel(f"Channel {channels[0]}:")
-                channel_label.setStyleSheet("font-size: 12px; margin-top: 8px; margin-bottom: 4px;")
-                self.scroll_layout.addWidget(channel_label)
-
-                # 获取当前颜色（默认使用第一个预设颜色）
-                current_color = config.get('lineColor', '#0A84FF')
-
-                color_picker = ColorPicker(current_color, self.theme)
-                color_picker.color_changed.connect(lambda c: self._update_widget_config('lineColor', c))
-                self.scroll_layout.addWidget(color_picker)
+        self.scroll_layout.addWidget(grid_check)
 
     def _add_terminal_settings(self, config: Dict):
         """终端配置"""
@@ -561,21 +575,15 @@ class InspectorPanel(QWidget):
 
         self.scroll_layout.addSpacing(12)
 
-        # Auto-scroll
-        scroll_layout = QHBoxLayout()
+        # Auto-scroll (使用垂直布局)
         scroll_label = QLabel("Auto-scroll")
-        scroll_label.setStyleSheet("font-size: 12px;")
-        scroll_layout.addWidget(scroll_label)
-        scroll_layout.addStretch()
+        scroll_label.setStyleSheet("font-size: 12px; margin-top: 4px;")
+        self.scroll_layout.addWidget(scroll_label)
 
         scroll_check = QCheckBox()
         scroll_check.setChecked(config.get('autoScroll', True))
         scroll_check.stateChanged.connect(lambda s: self._update_widget_config('autoScroll', bool(s)))
-        scroll_layout.addWidget(scroll_check)
-
-        scroll_widget = QWidget()
-        scroll_widget.setLayout(scroll_layout)
-        self.scroll_layout.addWidget(scroll_widget)
+        self.scroll_layout.addWidget(scroll_check)
 
     def _add_hex_viewer_settings(self, config: Dict):
         """十六进制查看器配置"""
@@ -694,23 +702,27 @@ class InspectorPanel(QWidget):
 
     def _on_delete(self):
         """删除 Widget"""
-        self.hide()
-        # TODO: 发射删除信号
+        if self.current_widget:
+            # 发射删除请求信号
+            self.delete_requested.emit()
+            # 清空当前选中的 Widget
+            self.current_widget = None
+            # 隐藏 Inspector 面板
+            self.hide()
 
     def _on_duplicate(self):
         """复制 Widget"""
-        # TODO: 发射复制信号
-        pass
+        if self.current_widget:
+            # 发射复制请求信号
+            self.duplicate_requested.emit()
 
     def set_theme(self, theme: str):
         """设置主题"""
         self.theme = theme
         self._apply_theme()
 
-        # 重新加载当前 Widget 以应用主题
-        if self.current_widget:
-            widget_data = self.current_widget
-            self.set_widget(widget_data)
+        # 重新应用输入控件的主题样式
+        # 注意：不重新加载 widget 数据，只更新样式
 
     def _apply_theme(self):
         """应用主题样式"""
