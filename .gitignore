@@ -52,6 +52,6 @@ htmlcov/
 *.sqlite3
 
 # CLAUDE
-CLAUDE.md
 *.sh
 *.md
+!README.md
