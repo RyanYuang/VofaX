@@ -561,12 +561,27 @@ class InspectorPanel(QWidget):
         self.scroll_layout.addWidget(grid_check)
 
     def _add_terminal_settings(self, config: Dict):
+        print("当前config：",config)
         """终端配置"""
-        # Display Mode
-        mode_label = QLabel("Display Mode")
-        mode_label.setStyleSheet("font-size: 12px; margin-top: 4px;")
-        self.scroll_layout.addWidget(mode_label)
+        # Protocol
+        protocol_label = QLabel("Protocol")
+        protocol_label.setStyleSheet("font-size: 12px; margin-top: 4px;")
+        self.scroll_layout.addWidget(protocol_label)
+        
+        # 数据格式
+        protocol_combo = StyledComboBox(self.theme)
+        protocol_combo.addItems(['FireWater', 'JustFloat', 'ASCII'])
+        protocol_combo.setCurrentText(config.get('protocol', 'FireWater'))
+        protocol_combo.currentTextChanged.connect(lambda v: self._update_widget_config('protocol', v))
+        self.scroll_layout.addWidget(protocol_combo)
+        print("当前protocol",protocol_combo.currentText())
 
+        self.scroll_layout.addSpacing(12)
+
+        # Data format
+        Data_Format_label = QLabel("Data Format")
+        Data_Format_label.setStyleSheet("font-size: 12px; margin-top: 4px;")
+        self.scroll_layout.addWidget(Data_Format_label)
         mode_combo = StyledComboBox(self.theme)
         mode_combo.addItems(['ascii', 'hex', 'decimal'])
         mode_combo.setCurrentText(config.get('displayMode', 'ascii'))
@@ -688,6 +703,7 @@ class InspectorPanel(QWidget):
             self.current_widget['config'][key] = value
             if self.live_preview_enabled:
                 self.config_changed.emit({'config': self.current_widget['config']})
+        print("inspector触发 修改widgett配置")
 
     def _update_channels(self):
         """更新通道绑定"""
@@ -699,6 +715,8 @@ class InspectorPanel(QWidget):
                 self.current_widget['dataBinding'] = {}
             self.current_widget['dataBinding']['channels'] = selected_channels
             self.config_changed.emit({'dataBinding': self.current_widget['dataBinding']})
+        print("inspector触发channel更新")
+        
 
     def _on_delete(self):
         """删除 Widget"""

@@ -114,7 +114,7 @@ class DemoSerialDevice:
     # 协议常量
     PROTOCOL_FIREWATER = 'firewater'
     PROTOCOL_JUSTFLOAT = 'justfloat'
-    PROTOCOL_ASCII = 'ascii'
+    RAW_DATA = 'ascii'
 
     # FireWater 尾巴
     FIREWATER_TAIL = b'\x00\x00\x80\x7f'
@@ -245,7 +245,7 @@ class DemoSerialDevice:
                     self.send_firewater_packet(data)
                 elif self.protocol == self.PROTOCOL_JUSTFLOAT:
                     self.send_justfloat_packet(data)
-                elif self.protocol == self.PROTOCOL_ASCII:
+                elif self.protocol == self.RAW_DATA:
                     self.send_ascii_packet(data)
 
                 # 打印统计信息 (每秒一次)

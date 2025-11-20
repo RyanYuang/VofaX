@@ -8,7 +8,7 @@ from PyQt6.QtCore import QTimer
 import pyqtgraph as pg
 import numpy as np
 from collections import deque
-from typing import Dict
+from typing import Dict, Optional, Union
 
 from .base_widget import BaseWidget
 from ..components.styled_button import SmallButton
@@ -26,6 +26,7 @@ class OscilloscopeWidget(BaseWidget):
         self.time_window = widget_data['config'].get('timeBase', 50) / 1000  # 转换为秒
         self.max_points = 1000  # PyQtGraph 可以处理更多点
         self.data_buffers = {}  # {channel: deque}
+        self.protocol = self._get_protocol()
 
         # 性能优化标志
         self.enable_opengl = False  # 可选的 OpenGL 加速
@@ -156,14 +157,16 @@ class OscilloscopeWidget(BaseWidget):
         # 使用节流后的更新机制
         self._on_data_received(mock_data)
 
-    def _on_data_update(self, data: Dict[str, float]):
+    def _on_data_update(self, data: Dict[str, Union[float, str]]):
         """接收真实数据更新（已节流）"""
+        processed_data = self._prepare_protocol_data(data)
+
         # 添加数据到缓冲区
         for channel in self.get_bound_channels():
-            if channel in data:
+            if channel in processed_data:
                 if channel not in self.data_buffers:
                     self.data_buffers[channel] = deque(maxlen=self.max_points)
-                self.data_buffers[channel].append(data[channel])
+                self.data_buffers[channel].append(processed_data[channel])
 
         # 高性能更新图表
         self._update_plot()
@@ -209,6 +212,7 @@ class OscilloscopeWidget(BaseWidget):
     def update_config(self, widget_data: Dict):
         """更新配置"""
         super().update_config(widget_data)
+        self.protocol = self._get_protocol()
 
         # 更新时基
         self.time_window = widget_data['config'].get('timeBase', 50) / 1000
@@ -254,3 +258,66 @@ class OscilloscopeWidget(BaseWidget):
             self.mock_timer.start(20)  # 50Hz
         else:
             self.mock_timer.stop()
+
+    def _get_protocol(self) -> str:
+        """读取 Inspector 中配置的协议"""
+        return self.widget_data.get('config', {}).get('protocol', 'FireWater').lower()
+
+    def _prepare_protocol_data(self, data: Dict[str, Union[float, str]]) -> Dict[str, float]:
+        """
+        根据配置的协议转换数据。
+        FireWater/JustFloat 数据可直接使用，ASCII 需要从 RAW 文本解析。
+        """
+        processed = {
+            k: float(v) for k, v in data.items()
+            if k != 'RAW' and isinstance(v, (int, float))
+        }
+
+        if self.protocol == 'ascii' and 'RAW' in data:
+            ascii_values = self._parse_ascii_payload(str(data['RAW']))
+            processed.update(ascii_values)
+
+        return processed
+
+    def _parse_ascii_payload(self, raw_text: str) -> Dict[str, float]:
+        """解析 ASCII 文本，提取通道数据（格式: CH0:1.23,CH1:4.56）"""
+        parsed = {}
+        if not raw_text:
+            return parsed
+
+        for line in raw_text.replace('\r', '\n').split('\n'):
+            if not line.strip():
+                continue
+
+            for segment in line.split(','):
+                part = segment.strip()
+                if not part or ':' not in part:
+                    continue
+
+                name, value = part.split(':', 1)
+                channel = self._normalize_channel_name(name)
+                if not channel:
+                    continue
+
+                try:
+                    parsed[channel] = float(value.strip())
+                except ValueError:
+                    continue
+
+        return parsed
+
+    def _normalize_channel_name(self, name: str) -> Optional[str]:
+        """将 CH0/CH1 等文本映射到 I0/I1 通道名称"""
+        cleaned = name.strip().upper()
+        if cleaned.startswith('CH'):
+            suffix = cleaned[2:].strip()
+        elif cleaned.startswith('I'):
+            suffix = cleaned[1:].strip()
+        else:
+            suffix = ''
+
+        if suffix.isdigit():
+            return f'I{int(suffix)}'
+
+        # 未能识别出编号时返回原始名称，保证尽量兼容
+        return cleaned if cleaned else None

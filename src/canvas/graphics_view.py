@@ -398,20 +398,69 @@ class GraphicsView(QGraphicsView):
         """
         # 默认配置
         default_configs = {
-            'oscilloscope': {'width': 500, 'height': 350, 'title': 'Oscilloscope',
-                           'config': {'timeBase': 50, 'yAxis': 'auto', 'showGrid': True, 'protocol': 'FireWater'}},
-            'terminal': {'width': 500, 'height': 400, 'title': 'Terminal',
-                        'config': {'displayMode': 'ascii', 'autoScroll': True}},
-            'hex-viewer': {'width': 450, 'height': 350, 'title': 'Hex Viewer',
-                         'config': {'bytesPerRow': 16}},
-            'gauge': {'width': 280, 'height': 280, 'title': 'Gauge',
-                     'config': {'min': 0, 'max': 100, 'unit': ''}},
-            'data-table': {'width': 600, 'height': 350, 'title': 'Data Table',
-                         'config': {'maxRows': 100}},
-            'packet-analyzer': {'width': 500, 'height': 400, 'title': 'Packet Analyzer',
-                              'config': {'protocol': 'custom'}},
-            'chart': {'width': 500, 'height': 350, 'title': 'Chart',
-                     'config': {'chartType': 'line'}},
+            'oscilloscope': {
+                'width': 500,
+                'height': 350,
+                'title': 'Oscilloscope',
+                'config': {
+                    'timeBase': 50,
+                    'yAxis': 'auto',
+                    'showGrid': True,
+                    'protocol': 'FireWater'
+                }
+            },
+            'terminal': {
+                'width': 500,
+                'height': 400,
+                'title': 'Terminal',
+                'config': {
+                    'displayMode': 'ascii',
+                    'autoScroll': True,
+                    'protocol': 'FireWater'
+                }
+            },
+            'hex-viewer': {
+                'width': 450,
+                'height': 350,
+                'title': 'Hex Viewer',
+                'config': {
+                    'bytesPerRow': 16
+                }
+            },
+            'gauge': {
+                'width': 280,
+                'height': 280,
+                'title': 'Gauge',
+                'config': {
+                    'min': 0,
+                    'max': 100,
+                    'unit': ''
+                }
+            },
+            'data-table': {
+                'width': 600,
+                'height': 350,
+                'title': 'Data Table',
+                'config': {
+                    'maxRows': 100
+                }
+            },
+            'packet-analyzer': {
+                'width': 500,
+                'height': 400,
+                'title': 'Packet Analyzer',
+                'config': {
+                    'protocol': 'custom'
+                }
+            },
+            'chart': {
+                'width': 500,
+                'height': 350,
+                'title': 'Chart',
+                'config': {
+                    'chartType': 'line'
+                }
+            },
         }
 
         config = default_configs.get(widget_type, {})
@@ -425,7 +474,9 @@ class GraphicsView(QGraphicsView):
             'height': config.get('height', 350),
             'title': config.get('title', 'Widget'),
             'config': config.get('config', {}),
-            'dataBinding': {'channels': ['I0']},
+            'dataBinding': {
+                'channels': ['I0']
+            },
         }
 
         # 创建 WidgetItem

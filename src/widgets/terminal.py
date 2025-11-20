@@ -5,7 +5,7 @@ TerminalWidget - 终端 Widget (优化版)
 
 from PyQt6.QtWidgets import QVBoxLayout, QPlainTextEdit, QHBoxLayout, QLineEdit, QComboBox
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont,QTextCursor,QTextBlockFormat
 from typing import Dict, List, Union
 from datetime import datetime
 from collections import deque
@@ -24,6 +24,7 @@ class TerminalWidget(BaseWidget):
         self.max_lines = 1000  # 最大显示行数
         self.batch_size = 10  # 批量更新阈值
         self.pending_lines = deque()  # 待显示的行缓冲
+        self.protocol = self._get_protocol()  # Inspector 的协议配置
 
         self._setup_ui()
 
@@ -46,7 +47,10 @@ class TerminalWidget(BaseWidget):
         # 使用 QPlainTextEdit 替代 QTextEdit (性能更好)
         self.text_display = QPlainTextEdit()
         self.text_display.setReadOnly(True)
-        self.text_display.setFont(QFont("Consolas", 10))
+
+        # 设置字体和行高
+        font = QFont("Consolas", 15)
+        self.text_display.setFont(font)
         self.text_display.setMaximumBlockCount(self.max_lines)  # 限制最大行数
 
         if self.theme == 'dark':
@@ -56,6 +60,7 @@ class TerminalWidget(BaseWidget):
                     color: #00FF00;
                     border: 1px solid #3A3A3A;
                     border-radius: 4px;
+                    line-height: 0.8;
                 }
             """)
         else:
@@ -65,6 +70,7 @@ class TerminalWidget(BaseWidget):
                     color: #000000;
                     border: 1px solid #D1D5DB;
                     border-radius: 4px;
+                    line-height: 0.8;
                 }
             """)
 
@@ -100,18 +106,39 @@ class TerminalWidget(BaseWidget):
         logger = logging.getLogger(__name__)
         logger.info(f"[Terminal] Received data: {data}, bound channels: {self.get_bound_channels()}")
 
-        # 处理 RAW 文本数据（ASCII 协议的原始文本）
-        if 'RAW' in data:
-            line = self._format_raw_line(data['RAW'])
+        protocol = self.protocol
+        logger.info(f"[Terminal] Using protocol: {protocol}")
+
+        # 协议选择
+        if protocol == 'ascii':
+            # 处理 RAW 文本数据（ASCII 协议的原始文本）
+            line = data['RAW']#self._format_raw_line(data['RAW'])
             self.pending_lines.append(line)
             logger.info(f"[Terminal] Added RAW line: {line}")
+        elif protocol == 'firewater':
+            # 提取channel数量
+            channels = self.get_bound_channels()
+            logger.info(f"[Terminal Firewater] channels: {channels}")
 
-        # 批量处理数据
-        for channel in self.get_bound_channels():
-            if channel in data:
-                line = self._format_data_line(channel, data[channel])
+        else:
+            # FireWater / JustFloat 等数值协议：逐通道显示
+            channels = self.get_bound_channels()
+            
+            if not channels:
+                channels = [ch for ch in data.keys() if ch != 'RAW']
+
+            for channel in channels:
+                if channel not in data:
+                    continue
+
+                value = data[channel]
+                if isinstance(value, (int, float)):
+                    line = self._format_data_line(channel, value)
+                else:
+                    line = self._format_raw_line(value)
+
                 self.pending_lines.append(line)
-                logger.info(f"[Terminal] Added line: {line}")
+                logger.info(f"[Terminal] Added channel line: {line}")
 
         # 批量追加到显示区域
         if len(self.pending_lines) >= self.batch_size:
@@ -131,8 +158,8 @@ class TerminalWidget(BaseWidget):
             return
 
         # 批量追加文本（性能优化）
-        batch_text = "\n".join(self.pending_lines)
-        self.text_display.appendPlainText(batch_text)
+        batch_text = "".join(self.pending_lines)
+        self.text_display.insertPlainText(batch_text)
         self.pending_lines.clear()
 
         # 自动滚动
@@ -142,6 +169,7 @@ class TerminalWidget(BaseWidget):
 
     def _format_data_line(self, channel: str, value: float) -> str:
         """格式化数据行"""
+        # 获取combo的选项
         mode = self.mode_combo.currentText().lower()
         timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
 
@@ -172,7 +200,7 @@ class TerminalWidget(BaseWidget):
         data = self.input_field.text()
         if data:
             timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-            self.text_display.appendPlainText(f"[{timestamp}] TX: {data}")
+            self.text_display.insertPlainText(f"[{timestamp}] TX: {data}")
             self.input_field.clear()
 
             # TODO: 实际发送到串口
@@ -187,3 +215,23 @@ class TerminalWidget(BaseWidget):
     def set_batch_size(self, batch_size: int):
         """设置批量更新阈值"""
         self.batch_size = batch_size
+
+    def update_config(self, widget_data: Dict):
+        """Inspector 修改配置时同步协议/显示设置"""
+        super().update_config(widget_data)
+        self.protocol = self._get_protocol()
+
+        display_mode = widget_data.get('config', {}).get('displayMode')
+        if display_mode and hasattr(self, 'mode_combo'):
+            mode_map = {
+                'ascii': 'ASCII',
+                'hex': 'HEX',
+                'decimal': 'Decimal'
+            }
+            target = mode_map.get(display_mode.lower(), 'ASCII')
+            if self.mode_combo.currentText() != target:
+                self.mode_combo.setCurrentText(target)
+
+    def _get_protocol(self) -> str:
+        """读取 Inspector 中配置的协议"""
+        return self.widget_data.get('config', {}).get('protocol', 'FireWater').lower()
