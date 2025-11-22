@@ -1,0 +1,343 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="新架构类图 - New Architecture" id="new-class-diagram">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- 标题 -->
+        <mxCell id="title" value="&lt;h1&gt;数据引擎架构 - 新设计&lt;/h1&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="450" y="20" width="500" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- BaseDataEngine 抽象类 -->
+        <mxCell id="base-engine" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;i&gt;&amp;lt;&amp;lt;abstract&amp;gt;&amp;gt;&lt;/i&gt;&lt;br&gt;&lt;b&gt;BaseDataEngine&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;- channel_count: int&lt;br&gt;- config: Dict&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;+ &lt;i&gt;parse(buffer): ParseResult&lt;/i&gt;&lt;br&gt;+ &lt;i&gt;get_name(): str&lt;/i&gt;&lt;br&gt;+ &lt;i&gt;get_description(): str&lt;/i&gt;&lt;br&gt;+ get_channel_names(): List[str]&lt;br&gt;+ get_config_schema(): Dict&lt;br&gt;+ reset(): void&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;fillColor=#e1bee7;strokeColor=#9c27b0;" vertex="1" parent="1">
+          <mxGeometry x="80" y="100" width="280" height="200" as="geometry" />
+        </mxCell>
+
+        <!-- ParseResult 数据类 -->
+        <mxCell id="parse-result" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;i&gt;&amp;lt;&amp;lt;dataclass&amp;gt;&amp;gt;&lt;/i&gt;&lt;br&gt;&lt;b&gt;ParseResult&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;+ success: bool&lt;br&gt;+ data: Dict[str, Union[float, str]]&lt;br&gt;+ consumed_bytes: int&lt;br&gt;+ error_message: Optional[str]&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;fillColor=#fff9c4;strokeColor=#f9a825;" vertex="1" parent="1">
+          <mxGeometry x="80" y="360" width="280" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- FireWaterEngine -->
+        <mxCell id="firewater-engine" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;FireWaterEngine&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;- TAIL_BYTE = b'\n'&lt;br&gt;- encoding: str&lt;br&gt;- max_packet_size: int&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;+ parse(buffer): ParseResult&lt;br&gt;+ get_name(): &quot;firewater&quot;&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;fillColor=#c5e1a5;strokeColor=#7cb342;" vertex="1" parent="1">
+          <mxGeometry x="480" y="100" width="240" height="130" as="geometry" />
+        </mxCell>
+
+        <!-- JustFloatEngine -->
+        <mxCell id="justfloat-engine" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;JustFloatEngine&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;- FLOAT_SIZE = 4&lt;br&gt;- byte_order: str&lt;br&gt;- packet_size: int&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;+ parse(buffer): ParseResult&lt;br&gt;+ get_name(): &quot;justfloat&quot;&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;fillColor=#c5e1a5;strokeColor=#7cb342;" vertex="1" parent="1">
+          <mxGeometry x="480" y="270" width="240" height="130" as="geometry" />
+        </mxCell>
+
+        <!-- ASCIIEngine -->
+        <mxCell id="ascii-engine" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;ASCIIEngine&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;- encoding: str&lt;br&gt;- batch_size: int&lt;br&gt;- decode_errors: str&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;+ parse(buffer): ParseResult&lt;br&gt;+ get_name(): &quot;ascii&quot;&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;fillColor=#c5e1a5;strokeColor=#7cb342;" vertex="1" parent="1">
+          <mxGeometry x="480" y="440" width="240" height="130" as="geometry" />
+        </mxCell>
+
+        <!-- CustomEngine (用户自定义) -->
+        <mxCell id="custom-engine" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;CustomEngine&lt;/b&gt;&lt;br&gt;(用户自定义)&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;自定义字段...&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;+ parse(buffer): ParseResult&lt;br&gt;+ get_name(): &quot;custom&quot;&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;fillColor=#b2dfdb;strokeColor=#00695c;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="480" y="610" width="240" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- DataEngineManager -->
+        <mxCell id="engine-manager" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;DataEngineManager&lt;/b&gt;&lt;br&gt;(Singleton)&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;- _engine_classes: Dict[str, Type]&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;+ register_engine(class): bool&lt;br&gt;+ create_engine(name, **config): Engine&lt;br&gt;+ get_available_engines(): List[Dict]&lt;br&gt;+ get_engine_names(): List[str]&lt;br&gt;+ _load_custom_engines(): void&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;fillColor=#ffccbc;strokeColor=#ff6f00;" vertex="1" parent="1">
+          <mxGeometry x="820" y="100" width="300" height="170" as="geometry" />
+        </mxCell>
+
+        <!-- SerialThread (新版) -->
+        <mxCell id="serial-thread-new" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;SerialThread&lt;/b&gt;&lt;br&gt;(重构版)&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;- engine: BaseDataEngine&lt;br&gt;- serial_port: Serial&lt;br&gt;- buffer: bytearray&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;+ run(): void&lt;br&gt;+ _process_data(data): void&lt;br&gt;+ set_engine(name, config): bool&lt;br&gt;+ get_engine_info(): Dict&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;«signal» data_received(dict)&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="820" y="360" width="300" height="200" as="geometry" />
+        </mxCell>
+
+        <!-- SerialManager -->
+        <mxCell id="serial-manager-new" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;SerialManager&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;- serial_thread: SerialThread&lt;br&gt;- channel_manager: ChannelManager&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;+ connect(port, ...): bool&lt;br&gt;+ _on_data_received(data): void&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="820" y="620" width="300" height="120" as="geometry" />
+        </mxCell>
+
+        <!-- ChannelManager -->
+        <mxCell id="channel-manager-new" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;ChannelManager&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;- current_values: Dict&lt;br&gt;- history: Dict&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;+ update_batch(data): void&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;«signal» batch_updated(dict)&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="620" width="220" height="120" as="geometry" />
+        </mxCell>
+
+        <!-- 继承关系 -->
+        <mxCell id="inherit1" value="" style="endArrow=block;endFill=0;endSize=12;html=1;exitX=0;exitY=0.5;entryX=1;entryY=0.25;" edge="1" parent="1" source="firewater-engine" target="base-engine">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="480" y="165" as="sourcePoint" />
+            <mxPoint x="360" y="150" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="inherit2" value="" style="endArrow=block;endFill=0;endSize=12;html=1;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" edge="1" parent="1" source="justfloat-engine" target="base-engine">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="480" y="335" as="sourcePoint" />
+            <mxPoint x="360" y="200" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="inherit3" value="" style="endArrow=block;endFill=0;endSize=12;html=1;exitX=0;exitY=0.5;entryX=1;entryY=0.75;" edge="1" parent="1" source="ascii-engine" target="base-engine">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="480" y="505" as="sourcePoint" />
+            <mxPoint x="360" y="250" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="inherit4" value="" style="endArrow=block;endFill=0;endSize=12;html=1;exitX=0;exitY=0.3;entryX=1;entryY=1;dashed=1;" edge="1" parent="1" source="custom-engine" target="base-engine">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="480" y="643" as="sourcePoint" />
+            <mxPoint x="360" y="300" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 返回关系 -->
+        <mxCell id="return1" value="returns" style="endArrow=open;endFill=0;endSize=12;html=1;dashed=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="base-engine" target="parse-result">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="220" y="300" as="sourcePoint" />
+            <mxPoint x="220" y="360" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 管理关系 -->
+        <mxCell id="manage1" value="manages" style="endArrow=open;endFill=1;endSize=12;html=1;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" edge="1" parent="1" source="engine-manager" target="firewater-engine">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="820" y="185" as="sourcePoint" />
+            <mxPoint x="720" y="165" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="manage2" value="" style="endArrow=open;endFill=1;endSize=12;html=1;exitX=0;exitY=0.7;entryX=1;entryY=0.5;dashed=1;" edge="1" parent="1" source="engine-manager" target="justfloat-engine">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="820" y="219" as="sourcePoint" />
+            <mxPoint x="720" y="335" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 使用关系 -->
+        <mxCell id="use1" value="uses" style="endArrow=open;endFill=1;endSize=12;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="engine-manager" target="serial-thread-new">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="970" y="270" as="sourcePoint" />
+            <mxPoint x="970" y="360" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="use2" value="delegates to" style="endArrow=open;endFill=1;endSize=12;html=1;exitX=0;exitY=0.3;entryX=1;entryY=0.3;" edge="1" parent="1" source="serial-thread-new" target="base-engine">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="820" y="420" as="sourcePoint" />
+            <mxPoint x="360" y="160" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="use3" value="" style="endArrow=open;endFill=1;endSize=12;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="serial-thread-new" target="serial-manager-new">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="970" y="560" as="sourcePoint" />
+            <mxPoint x="970" y="620" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="use4" value="" style="endArrow=open;endFill=1;endSize=12;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="serial-manager-new" target="channel-manager-new">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="1120" y="680" as="sourcePoint" />
+            <mxPoint x="1200" y="680" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 说明框 -->
+        <mxCell id="note1" value="&lt;b&gt;关键优势:&lt;/b&gt;&lt;br&gt;• 串口与协议解耦&lt;br&gt;• 支持运行时切换协议&lt;br&gt;• 易于添加自定义引擎&lt;br&gt;• 统一的解析接口" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#e1f5fe;strokeColor=#0288d1;size=16;fontSize=11;align=left;" vertex="1" parent="1">
+          <mxGeometry x="80" y="540" width="240" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="note2" value="&lt;b&gt;自定义引擎加载:&lt;/b&gt;&lt;br&gt;1. 放入 custom/ 目录&lt;br&gt;2. 继承 BaseDataEngine&lt;br&gt;3. 实现 parse() 方法&lt;br&gt;4. 自动加载，无需修改代码" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#fff9e6;strokeColor=#f9a825;size=16;fontSize=11;align=left;" vertex="1" parent="1">
+          <mxGeometry x="80" y="700" width="240" height="120" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <diagram name="数据流序列图 - New Flow" id="new-sequence">
+    <mxGraphModel dx="1422" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="seq2-0" />
+        <mxCell id="seq2-1" parent="seq2-0" />
+
+        <!-- 标题 -->
+        <mxCell id="seq2-title" value="&lt;h1&gt;新架构数据流序列图&lt;/h1&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="seq2-1">
+          <mxGeometry x="450" y="20" width="500" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- 生命线 -->
+        <mxCell id="seq2-serial-port" value="串口设备" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="seq2-1">
+          <mxGeometry x="80" y="100" width="100" height="1000" as="geometry" />
+        </mxCell>
+
+        <mxCell id="seq2-serial-thread" value="SerialThread" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="seq2-1">
+          <mxGeometry x="260" y="100" width="120" height="1000" as="geometry" />
+        </mxCell>
+
+        <mxCell id="seq2-engine" value="DataEngine\n(FireWater)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#c5e1a5;strokeColor=#7cb342;" vertex="1" parent="seq2-1">
+          <mxGeometry x="460" y="100" width="140" height="1000" as="geometry" />
+        </mxCell>
+
+        <mxCell id="seq2-serial-manager" value="SerialManager" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="seq2-1">
+          <mxGeometry x="680" y="100" width="130" height="1000" as="geometry" />
+        </mxCell>
+
+        <mxCell id="seq2-channel-manager" value="ChannelManager" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="seq2-1">
+          <mxGeometry x="900" y="100" width="140" height="1000" as="geometry" />
+        </mxCell>
+
+        <mxCell id="seq2-widget" value="BaseWidget" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="seq2-1">
+          <mxGeometry x="1120" y="100" width="120" height="1000" as="geometry" />
+        </mxCell>
+
+        <!-- 激活条 -->
+        <mxCell id="act2-1" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="seq2-1">
+          <mxGeometry x="315" y="200" width="10" height="800" as="geometry" />
+        </mxCell>
+
+        <!-- 步骤1: 接收数据 -->
+        <mxCell id="step2-1" value="1. 读取串口数据" style="html=1;verticalAlign=bottom;endArrow=block;entryX=0;entryY=0;" edge="1" parent="seq2-1" source="seq2-serial-port" target="act2-1">
+          <mxGeometry width="80" relative="1" as="geometry">
+            <mxPoint x="130" y="200" as="sourcePoint" />
+            <mxPoint x="315" y="200" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="note2-1" value="原始字节流" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#e1f5fe;strokeColor=#0288d1;size=10;fontSize=9;" vertex="1" parent="seq2-1">
+          <mxGeometry x="40" y="220" width="100" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- 步骤2: 添加到buffer -->
+        <mxCell id="step2-2" value="2. buffer.extend(data)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;exitX=1;exitY=0.05;entryX=1;entryY=0.08;" edge="1" parent="seq2-1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="325" y="280" as="sourcePoint" />
+            <mxPoint x="325" y="320" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="400" y="280" />
+              <mxPoint x="400" y="320" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 步骤3: 调用引擎解析 -->
+        <mxCell id="step2-3" value="3. engine.parse(buffer)" style="html=1;verticalAlign=bottom;endArrow=block;entryX=0;entryY=0.15;" edge="1" parent="seq2-1" source="act2-1" target="seq2-engine">
+          <mxGeometry width="80" relative="1" as="geometry">
+            <mxPoint x="325" y="360" as="sourcePoint" />
+            <mxPoint x="530" y="360" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="act2-2" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;fillColor=#c5e1a5;strokeColor=#7cb342;" vertex="1" parent="seq2-1">
+          <mxGeometry x="525" y="360" width="10" height="160" as="geometry" />
+        </mxCell>
+
+        <!-- 引擎内部处理 -->
+        <mxCell id="step2-4" value="4. 解析协议\n(查找'\n', split(','), 转float)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;exitX=1;exitY=0.2;entryX=1;entryY=0.6;" edge="1" parent="seq2-1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="535" y="390" as="sourcePoint" />
+            <mxPoint x="535" y="460" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="620" y="390" />
+              <mxPoint x="620" y="460" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 返回ParseResult -->
+        <mxCell id="step2-5" value="5. return ParseResult\n(success, data, consumed_bytes)" style="html=1;verticalAlign=bottom;endArrow=return;exitX=0;exitY=0.9;entryX=1;entryY=0.25;" edge="1" parent="seq2-1" source="act2-2" target="act2-1">
+          <mxGeometry width="80" relative="1" as="geometry">
+            <mxPoint x="525" y="504" as="sourcePoint" />
+            <mxPoint x="325" y="504" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="note2-2" value="ParseResult:\n{\n  success: True,\n  data: {I0: 1.23, I1: 4.56},\n  consumed_bytes: 14\n}" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#fff9e6;strokeColor=#f9a825;size=10;fontSize=9;align=left;" vertex="1" parent="seq2-1">
+          <mxGeometry x="380" y="480" width="160" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- 清理buffer -->
+        <mxCell id="step2-6" value="6. buffer = buffer[consumed_bytes:]" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;exitX=1;exitY=0.35;entryX=1;entryY=0.4;" edge="1" parent="seq2-1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="325" y="560" as="sourcePoint" />
+            <mxPoint x="325" y="590" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="400" y="560" />
+              <mxPoint x="400" y="590" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 发射信号 -->
+        <mxCell id="step2-7" value="7. «signal» data_received(data)" style="html=1;verticalAlign=bottom;endArrow=block;entryX=0;entryY=0.5;dashed=1;" edge="1" parent="seq2-1" source="act2-1" target="seq2-serial-manager">
+          <mxGeometry width="80" relative="1" as="geometry">
+            <mxPoint x="325" y="640" as="sourcePoint" />
+            <mxPoint x="745" y="640" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="act2-3" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="seq2-1">
+          <mxGeometry x="740" y="640" width="10" height="300" as="geometry" />
+        </mxCell>
+
+        <!-- SerialManager转发 -->
+        <mxCell id="step2-8" value="8. _on_data_received(data)" style="html=1;verticalAlign=bottom;endArrow=block;entryX=0;entryY=0.6;" edge="1" parent="seq2-1" source="act2-3" target="seq2-channel-manager">
+          <mxGeometry width="80" relative="1" as="geometry">
+            <mxPoint x="750" y="700" as="sourcePoint" />
+            <mxPoint x="970" y="700" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="act2-4" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="seq2-1">
+          <mxGeometry x="965" y="700" width="10" height="200" as="geometry" />
+        </mxCell>
+
+        <!-- ChannelManager更新 -->
+        <mxCell id="step2-9" value="9. update_batch(data)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;exitX=1;exitY=0.1;entryX=1;entryY=0.3;" edge="1" parent="seq2-1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="975" y="740" as="sourcePoint" />
+            <mxPoint x="975" y="800" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1050" y="740" />
+              <mxPoint x="1050" y="800" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 发射batch_updated -->
+        <mxCell id="step2-10" value="10. «signal» batch_updated(data)" style="html=1;verticalAlign=bottom;endArrow=block;entryX=0;entryY=0.8;dashed=1;" edge="1" parent="seq2-1" source="act2-4" target="seq2-widget">
+          <mxGeometry width="80" relative="1" as="geometry">
+            <mxPoint x="975" y="860" as="sourcePoint" />
+            <mxPoint x="1180" y="860" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="act2-5" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="seq2-1">
+          <mxGeometry x="1175" y="860" width="10" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Widget更新 -->
+        <mxCell id="step2-11" value="11. _on_data_update(data)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;exitX=1;exitY=0.2;entryX=1;entryY=0.7;" edge="1" parent="seq2-1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1185" y="890" as="sourcePoint" />
+            <mxPoint x="1185" y="920" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1260" y="890" />
+              <mxPoint x="1260" y="920" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 总结框 -->
+        <mxCell id="summary2" value="&lt;h3&gt;新架构流程对比&lt;/h3&gt;&lt;hr&gt;&lt;p style=&quot;text-align:left&quot;&gt;&lt;b&gt;旧架构:&lt;/b&gt; SerialThread内部耦合解析逻辑&lt;br&gt;&lt;b&gt;新架构:&lt;/b&gt; 引擎独立，SerialThread只负责调用&lt;br&gt;&lt;br&gt;&lt;b&gt;优势:&lt;/b&gt;&lt;br&gt;• 协议解析逻辑完全独立&lt;br&gt;• 支持运行时切换协议&lt;br&gt;• 添加新协议无需修改SerialThread&lt;br&gt;• 每个引擎一个文件，易于维护&lt;/p&gt;" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#e1f5fe;strokeColor=#0288d1;size=16;align=center;fontSize=11;" vertex="1" parent="seq2-1">
+          <mxGeometry x="80" y="980" width="400" height="180" as="geometry" />
+        </mxCell>
+
+        <mxCell id="highlight2" value="&lt;b&gt;关键改进点&lt;/b&gt;&lt;br&gt;引擎返回 ParseResult，包含:&lt;br&gt;• consumed_bytes: 清理buffer&lt;br&gt;• data: 解析结果&lt;br&gt;• success: 是否成功&lt;br&gt;• error_message: 错误信息" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#fff9e6;strokeColor=#f9a825;size=16;align=left;fontSize=10;" vertex="1" parent="seq2-1">
+          <mxGeometry x="560" y="980" width="260" height="120" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+</mxfile>

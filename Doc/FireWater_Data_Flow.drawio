@@ -1,0 +1,400 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="类图 - Class Diagram" id="class-diagram">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- SerialThread 类 -->
+        <mxCell id="serial-thread" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;SerialThread&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;- serial_port: Serial&lt;br&gt;- protocol: str&lt;br&gt;- buffer: bytearray&lt;br&gt;- channel_count: int&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;+ run(): void&lt;br&gt;+ _process_data(data: bytes): void&lt;br&gt;+ _parse_firewater(): void&lt;br&gt;+ _parse_justfloat(): void&lt;br&gt;+ _parse_ascii(): void&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;«signal» data_received(dict)&lt;br&gt;«signal» error_occurred(str)&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="80" y="80" width="260" height="200" as="geometry" />
+        </mxCell>
+
+        <!-- SerialManager 类 -->
+        <mxCell id="serial-manager" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;SerialManager&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;- serial_thread: SerialThread&lt;br&gt;- channel_manager: ChannelManager&lt;br&gt;- is_connected: bool&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;+ connect(port, baudrate, ...): bool&lt;br&gt;+ disconnect(): void&lt;br&gt;+ _on_data_received(data): void&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;«signal» connected(str, int)&lt;br&gt;«signal» disconnected()&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="440" y="80" width="280" height="200" as="geometry" />
+        </mxCell>
+
+        <!-- ChannelManager 类 -->
+        <mxCell id="channel-manager" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;ChannelManager&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;- current_values: Dict[str, float]&lt;br&gt;- history: Dict[str, Deque]&lt;br&gt;- subscribers: Dict[str, set]&lt;br&gt;- history_size: int = 1000&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;+ update_channel(channel, value): void&lt;br&gt;+ update_batch(data: Dict): void&lt;br&gt;+ get_current_value(channel): float&lt;br&gt;+ get_history(channel, count): List&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;«signal» channel_updated(str, float, float)&lt;br&gt;«signal» batch_updated(dict)&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="800" y="80" width="320" height="220" as="geometry" />
+        </mxCell>
+
+        <!-- BaseWidget 类 -->
+        <mxCell id="base-widget" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;i&gt;&amp;lt;&amp;lt;abstract&amp;gt;&amp;gt;&lt;/i&gt;&lt;br&gt;&lt;b&gt;BaseWidget&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;- channel_manager: ChannelManager&lt;br&gt;- pending_data: Dict&lt;br&gt;- update_interval: int = 50ms&lt;br&gt;- update_timer: QTimer&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;+ _subscribe_channels(): void&lt;br&gt;+ _on_data_received(data): void&lt;br&gt;+ _process_pending_updates(): void&lt;br&gt;+ &lt;i&gt;_on_data_update(data): void&lt;/i&gt;&lt;br&gt;+ get_bound_channels(): List[str]&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="800" y="400" width="320" height="200" as="geometry" />
+        </mxCell>
+
+        <!-- OscilloscopeWidget 类 -->
+        <mxCell id="oscilloscope-widget" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;OscilloscopeWidget&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;- canvas: FigureCanvas&lt;br&gt;- ax: Axes&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;+ _on_data_update(data): void&lt;br&gt;+ _update_plot(): void&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="640" y="680" width="220" height="120" as="geometry" />
+        </mxCell>
+
+        <!-- TerminalWidget 类 -->
+        <mxCell id="terminal-widget" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;TerminalWidget&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;- text_edit: QTextEdit&lt;br&gt;- display_mode: str&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;+ _on_data_update(data): void&lt;br&gt;+ append_text(text): void&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="900" y="680" width="220" height="120" as="geometry" />
+        </mxCell>
+
+        <!-- 关系箭头 -->
+        <!-- SerialThread -> SerialManager (signal) -->
+        <mxCell id="edge1" value="data_received signal" style="endArrow=open;endFill=1;endSize=12;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;dashed=1;" edge="1" parent="1" source="serial-thread" target="serial-manager">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="340" y="180" as="sourcePoint" />
+            <mxPoint x="440" y="180" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- SerialManager -> ChannelManager (uses) -->
+        <mxCell id="edge2" value="update_batch()" style="endArrow=open;endFill=1;endSize=12;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="serial-manager" target="channel-manager">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="720" y="180" as="sourcePoint" />
+            <mxPoint x="800" y="180" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ChannelManager -> BaseWidget (signal) -->
+        <mxCell id="edge3" value="batch_updated signal" style="endArrow=open;endFill=1;endSize=12;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;dashed=1;" edge="1" parent="1" source="channel-manager" target="base-widget">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="960" y="300" as="sourcePoint" />
+            <mxPoint x="960" y="400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- BaseWidget -> OscilloscopeWidget (inheritance) -->
+        <mxCell id="edge4" value="" style="endArrow=block;endFill=0;endSize=12;html=1;exitX=0.3;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="base-widget" target="oscilloscope-widget">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="900" y="600" as="sourcePoint" />
+            <mxPoint x="750" y="680" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- BaseWidget -> TerminalWidget (inheritance) -->
+        <mxCell id="edge5" value="" style="endArrow=block;endFill=0;endSize=12;html=1;exitX=0.7;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="base-widget" target="terminal-widget">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="1020" y="600" as="sourcePoint" />
+            <mxPoint x="1010" y="680" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 标题 -->
+        <mxCell id="title" value="&lt;h1&gt;FireWater 数据流类图&lt;/h1&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="400" y="20" width="400" height="40" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <diagram name="序列图 - Sequence Diagram" id="sequence-diagram">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="1400" math="0" shadow="0">
+      <root>
+        <mxCell id="seq-0" />
+        <mxCell id="seq-1" parent="seq-0" />
+
+        <!-- 标题 -->
+        <mxCell id="seq-title" value="&lt;h1&gt;FireWater 协议数据流序列图&lt;/h1&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="seq-1">
+          <mxGeometry x="300" y="20" width="500" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- 生命线对象 -->
+        <mxCell id="seq-serial-port" value="串口设备" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="seq-1">
+          <mxGeometry x="80" y="80" width="100" height="1200" as="geometry" />
+        </mxCell>
+
+        <mxCell id="seq-serial-thread" value="SerialThread" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="seq-1">
+          <mxGeometry x="240" y="80" width="120" height="1200" as="geometry" />
+        </mxCell>
+
+        <mxCell id="seq-serial-manager" value="SerialManager" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="seq-1">
+          <mxGeometry x="420" y="80" width="130" height="1200" as="geometry" />
+        </mxCell>
+
+        <mxCell id="seq-channel-manager" value="ChannelManager" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="seq-1">
+          <mxGeometry x="620" y="80" width="140" height="1200" as="geometry" />
+        </mxCell>
+
+        <mxCell id="seq-base-widget" value="BaseWidget" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="seq-1">
+          <mxGeometry x="840" y="80" width="120" height="1200" as="geometry" />
+        </mxCell>
+
+        <mxCell id="seq-widget-impl" value="具体Widget\n(e.g. Oscilloscope)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="seq-1">
+          <mxGeometry x="1020" y="80" width="120" height="1200" as="geometry" />
+        </mxCell>
+
+        <!-- 激活条 -->
+        <mxCell id="act1" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="seq-1">
+          <mxGeometry x="295" y="160" width="10" height="1080" as="geometry" />
+        </mxCell>
+
+        <!-- 步骤1: 串口接收数据 -->
+        <mxCell id="step1" value="1. 接收串口数据" style="html=1;verticalAlign=bottom;endArrow=block;entryX=0;entryY=0;" edge="1" parent="seq-1" source="seq-serial-port" target="act1">
+          <mxGeometry x="0.2" width="80" relative="1" as="geometry">
+            <mxPoint x="130" y="160" as="sourcePoint" />
+            <mxPoint x="295" y="160" as="targetPoint" />
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="step1-note" value="原始字节流:\n例如 b'1.23,4.56,7.89\n'" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#fff9e6;strokeColor=#d6b656;size=12;fontSize=10;" vertex="1" parent="seq-1">
+          <mxGeometry x="20" y="180" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- 步骤2: 添加到缓冲区 -->
+        <mxCell id="step2" value="2. _process_data(data)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;exitX=1;exitY=0.05;entryX=1;entryY=0.05;" edge="1" parent="seq-1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="305" y="220" as="sourcePoint" />
+            <mxPoint x="305" y="240" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="360" y="220" />
+              <mxPoint x="360" y="240" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="step2-note" value="self.buffer.extend(data)" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#e1f5fe;strokeColor=#6c8ebf;size=10;fontSize=9;" vertex="1" parent="seq-1">
+          <mxGeometry x="370" y="210" width="120" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- 步骤3: 解析FireWater协议 -->
+        <mxCell id="step3" value="3. _parse_firewater()" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;exitX=1;exitY=0.1;entryX=1;entryY=0.12;" edge="1" parent="seq-1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="305" y="280" as="sourcePoint" />
+            <mxPoint x="305" y="340" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="380" y="280" />
+              <mxPoint x="380" y="340" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="step3-note" value="&lt;b&gt;FireWater 解析逻辑:&lt;/b&gt;&lt;br&gt;1. 查找换行符 '\n'&lt;br&gt;2. 提取完整包&lt;br&gt;3. 按逗号分割数据&lt;br&gt;4. 构造字典:&lt;br&gt;&amp;nbsp;&amp;nbsp;{I0: 1.23, I1: 4.56, I2: 7.89}" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#e1f5fe;strokeColor=#6c8ebf;size=12;fontSize=10;align=left;" vertex="1" parent="seq-1">
+          <mxGeometry x="20" y="270" width="200" height="120" as="geometry" />
+        </mxCell>
+
+        <!-- 步骤4: 发射data_received信号 -->
+        <mxCell id="step4" value="4. «signal» data_received({I0:1.23, I1:4.56})" style="html=1;verticalAlign=bottom;endArrow=block;entryX=0;entryY=0.2;dashed=1;" edge="1" parent="seq-1" source="act1" target="seq-serial-manager">
+          <mxGeometry width="80" relative="1" as="geometry">
+            <mxPoint x="305" y="400" as="sourcePoint" />
+            <mxPoint x="485" y="400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="act2" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="seq-1">
+          <mxGeometry x="480" y="400" width="10" height="780" as="geometry" />
+        </mxCell>
+
+        <!-- 步骤5: SerialManager处理数据 -->
+        <mxCell id="step5" value="5. _on_data_received(data)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;exitX=1;exitY=0.05;entryX=1;entryY=0.08;" edge="1" parent="seq-1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="490" y="440" as="sourcePoint" />
+            <mxPoint x="490" y="480" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="550" y="440" />
+              <mxPoint x="550" y="480" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 步骤6: 调用ChannelManager更新 -->
+        <mxCell id="step6" value="6. update_batch(data)" style="html=1;verticalAlign=bottom;endArrow=block;entryX=0;entryY=0.3;" edge="1" parent="seq-1" source="act2" target="seq-channel-manager">
+          <mxGeometry width="80" relative="1" as="geometry">
+            <mxPoint x="490" y="520" as="sourcePoint" />
+            <mxPoint x="690" y="520" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="act3" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="seq-1">
+          <mxGeometry x="685" y="520" width="10" height="600" as="geometry" />
+        </mxCell>
+
+        <!-- 步骤7: ChannelManager更新当前值和历史 -->
+        <mxCell id="step7" value="7. 更新current_values和history" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;exitX=1;exitY=0.05;entryX=1;entryY=0.1;" edge="1" parent="seq-1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="695" y="560" as="sourcePoint" />
+            <mxPoint x="695" y="620" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="770" y="560" />
+              <mxPoint x="770" y="620" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="step7-note" value="self.current_values[I0] = 1.23&lt;br&gt;self.current_values[I1] = 4.56&lt;br&gt;self.history[I0].append((timestamp, 1.23))" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#fff9e6;strokeColor=#d6b656;size=10;fontSize=9;align=left;" vertex="1" parent="seq-1">
+          <mxGeometry x="780" y="550" width="220" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- 步骤8: 发射batch_updated信号 -->
+        <mxCell id="step8" value="8. «signal» batch_updated(data)" style="html=1;verticalAlign=bottom;endArrow=block;entryX=0;entryY=0.4;dashed=1;" edge="1" parent="seq-1" source="act3" target="seq-base-widget">
+          <mxGeometry width="80" relative="1" as="geometry">
+            <mxPoint x="695" y="660" as="sourcePoint" />
+            <mxPoint x="900" y="660" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="act4" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="seq-1">
+          <mxGeometry x="895" y="660" width="10" height="420" as="geometry" />
+        </mxCell>
+
+        <!-- 步骤9: BaseWidget接收数据 -->
+        <mxCell id="step9" value="9. _on_data_received(data)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;exitX=1;exitY=0.05;entryX=1;entryY=0.1;" edge="1" parent="seq-1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="905" y="700" as="sourcePoint" />
+            <mxPoint x="905" y="760" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="980" y="700" />
+              <mxPoint x="980" y="760" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="step9-note" value="&lt;b&gt;节流机制:&lt;/b&gt;&lt;br&gt;1. 检查bound_channels&lt;br&gt;2. 缓存数据到pending_data&lt;br&gt;3. 等待update_timer触发" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#ffe6cc;strokeColor=#b85450;size=10;fontSize=9;align=left;" vertex="1" parent="seq-1">
+          <mxGeometry x="990" y="690" width="170" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- 步骤10: Timer触发 (50ms后) -->
+        <mxCell id="step10-label" value="【50ms 后】" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1" vertex="1" parent="seq-1">
+          <mxGeometry x="780" y="810" width="80" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="step10" value="10. QTimer.timeout()" style="html=1;verticalAlign=bottom;endArrow=block;entryX=0;entryY=0.5;dashed=1;" edge="1" parent="seq-1" target="act4">
+          <mxGeometry width="80" relative="1" as="geometry">
+            <mxPoint x="80" y="860" as="sourcePoint" />
+            <mxPoint x="895" y="860" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 步骤11: 处理待更新数据 -->
+        <mxCell id="step11" value="11. _process_pending_updates()" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;exitX=1;exitY=0.6;entryX=1;entryY=0.65;" edge="1" parent="seq-1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="905" y="900" as="sourcePoint" />
+            <mxPoint x="905" y="940" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="980" y="900" />
+              <mxPoint x="980" y="940" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 步骤12: 调用具体Widget的更新方法 -->
+        <mxCell id="step12" value="12. _on_data_update(pending_data.copy())" style="html=1;verticalAlign=bottom;endArrow=block;entryX=0;entryY=0.7;" edge="1" parent="seq-1" source="act4" target="seq-widget-impl">
+          <mxGeometry width="80" relative="1" as="geometry">
+            <mxPoint x="905" y="980" as="sourcePoint" />
+            <mxPoint x="1080" y="980" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="act5" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="seq-1">
+          <mxGeometry x="1075" y="980" width="10" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- 步骤13: Widget更新UI -->
+        <mxCell id="step13" value="13. 更新UI显示" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;exitX=1;exitY=0.3;entryX=1;entryY=0.8;" edge="1" parent="seq-1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1085" y="1000" as="sourcePoint" />
+            <mxPoint x="1085" y="1030" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1160" y="1000" />
+              <mxPoint x="1160" y="1030" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="step13-note" value="例如Oscilloscope:\n更新matplotlib图表" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#ffe6cc;strokeColor=#d79b00;size=10;fontSize=9;" vertex="1" parent="seq-1">
+          <mxGeometry x="1000" y="1050" width="140" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- 清空pending_data -->
+        <mxCell id="step14" value="14. pending_data.clear()" style="html=1;verticalAlign=bottom;endArrow=return;exitX=1;exitY=0.9;entryX=1;entryY=0.95;dashed=1;" edge="1" parent="seq-1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="905" y="1060" as="sourcePoint" />
+            <mxPoint x="905" y="1070" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="950" y="1060" />
+              <mxPoint x="950" y="1070" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 流程说明框 -->
+        <mxCell id="process-summary" value="&lt;h3&gt;完整流程总结&lt;/h3&gt;&lt;hr&gt;&lt;p style=&quot;text-align:left&quot;&gt;&lt;b&gt;1. 数据接收:&lt;/b&gt; 串口 → SerialThread.run()&lt;br&gt;&lt;b&gt;2. 协议解析:&lt;/b&gt; FireWater格式 (逗号分隔+换行符)&lt;br&gt;&lt;b&gt;3. 信号传递:&lt;/b&gt; SerialThread → SerialManager&lt;br&gt;&lt;b&gt;4. 数据分发:&lt;/b&gt; SerialManager → ChannelManager&lt;br&gt;&lt;b&gt;5. 订阅通知:&lt;/b&gt; ChannelManager → BaseWidget (所有订阅的Widget)&lt;br&gt;&lt;b&gt;6. 节流更新:&lt;/b&gt; BaseWidget缓存数据，50ms批量更新&lt;br&gt;&lt;b&gt;7. UI渲染:&lt;/b&gt; 具体Widget更新显示&lt;/p&gt;" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#d5e8d4;strokeColor=#82b366;size=16;align=center;fontSize=11;" vertex="1" parent="seq-1">
+          <mxGeometry x="40" y="1120" width="500" height="140" as="geometry" />
+        </mxCell>
+
+        <!-- 关键设计要点 -->
+        <mxCell id="design-notes" value="&lt;h3&gt;关键设计要点&lt;/h3&gt;&lt;hr&gt;&lt;p style=&quot;text-align:left&quot;&gt;&lt;b&gt;• 异步线程:&lt;/b&gt; SerialThread在后台运行，不阻塞UI&lt;br&gt;&lt;b&gt;• 信号槽机制:&lt;/b&gt; PyQt6跨线程通信，线程安全&lt;br&gt;&lt;b&gt;• 观察者模式:&lt;/b&gt; Widget订阅感兴趣的通道&lt;br&gt;&lt;b&gt;• 节流机制:&lt;/b&gt; 50ms批量更新，避免UI卡顿&lt;br&gt;&lt;b&gt;• 历史缓存:&lt;/b&gt; 每个通道保留1000个数据点&lt;br&gt;&lt;b&gt;• 解耦设计:&lt;/b&gt; 各层职责清晰，易于扩展&lt;/p&gt;" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#fff2cc;strokeColor=#d6b656;size=16;align=center;fontSize=11;" vertex="1" parent="seq-1">
+          <mxGeometry x="600" y="1120" width="480" height="140" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <diagram name="FireWater协议格式" id="protocol-format">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="600" math="0" shadow="0">
+      <root>
+        <mxCell id="proto-0" />
+        <mxCell id="proto-1" parent="proto-0" />
+
+        <!-- 标题 -->
+        <mxCell id="proto-title" value="&lt;h1&gt;FireWater 协议格式详解&lt;/h1&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="proto-1">
+          <mxGeometry x="350" y="20" width="400" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- 协议格式示例 -->
+        <mxCell id="proto-example" value="&lt;h2&gt;格式: [Data_1],[Data_2],[Data_3],...,[Data_N]\n&lt;/h2&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;fontFamily=Courier New;align=center;" vertex="1" parent="proto-1">
+          <mxGeometry x="80" y="100" width="1000" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- 实际数据示例 -->
+        <mxCell id="proto-real-example" value="&lt;font face=&quot;Courier New&quot; style=&quot;font-size: 16px;&quot;&gt;例如: &lt;b&gt;1.23,4.56,7.89,10.11,12.34\n&lt;/b&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;align=center;" vertex="1" parent="proto-1">
+          <mxGeometry x="80" y="200" width="1000" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- 字段说明 -->
+        <mxCell id="field1" value="Data_1&lt;br&gt;(I0)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="proto-1">
+          <mxGeometry x="120" y="320" width="120" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="sep1" value="," style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1" vertex="1" parent="proto-1">
+          <mxGeometry x="240" y="335" width="40" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="field2" value="Data_2&lt;br&gt;(I1)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="proto-1">
+          <mxGeometry x="280" y="320" width="120" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="sep2" value="," style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1" vertex="1" parent="proto-1">
+          <mxGeometry x="400" y="335" width="40" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="field3" value="Data_3&lt;br&gt;(I2)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="proto-1">
+          <mxGeometry x="440" y="320" width="120" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="sep3" value="..." style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1" vertex="1" parent="proto-1">
+          <mxGeometry x="560" y="335" width="60" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fieldN" value="Data_N&lt;br&gt;(I14)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="proto-1">
+          <mxGeometry x="620" y="320" width="120" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="tail" value="\n&lt;br&gt;(0x0A)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1" vertex="1" parent="proto-1">
+          <mxGeometry x="740" y="320" width="80" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- 解析步骤 -->
+        <mxCell id="parse-steps" value="&lt;h2&gt;解析步骤 (_parse_firewater)&lt;/h2&gt;&lt;hr&gt;&lt;p style=&quot;text-align:left;font-size:12px;&quot;&gt;&lt;b&gt;Step 1:&lt;/b&gt; 查找缓冲区中的换行符 '\n' (0x0A)&lt;br&gt;&lt;b&gt;Step 2:&lt;/b&gt; 提取完整数据包 (从buffer开始到'\n'之前)&lt;br&gt;&lt;b&gt;Step 3:&lt;/b&gt; 使用 buffer.split(',') 按逗号分割&lt;br&gt;&lt;b&gt;Step 4:&lt;/b&gt; 遍历分割结果，转换为float类型&lt;br&gt;&lt;b&gt;Step 5:&lt;/b&gt; 构造字典: {I0: float(value0), I1: float(value1), ...}&lt;br&gt;&lt;b&gt;Step 6:&lt;/b&gt; 发射 data_received 信号&lt;br&gt;&lt;b&gt;Step 7:&lt;/b&gt; 清除已处理的buffer数据&lt;/p&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1f5fe;strokeColor=#6c8ebf;align=center;" vertex="1" parent="proto-1">
+          <mxGeometry x="80" y="420" width="480" height="180" as="geometry" />
+        </mxCell>
+
+        <!-- 注意事项 -->
+        <mxCell id="notes" value="&lt;h2&gt;注意事项&lt;/h2&gt;&lt;hr&gt;&lt;p style=&quot;text-align:left;font-size:12px;&quot;&gt;&lt;b&gt;• 缓冲区处理:&lt;/b&gt; 如果没找到'\n'，数据保留在buffer等待下次接收&lt;br&gt;&lt;b&gt;• 溢出保护:&lt;/b&gt; buffer超过1024字节会自动清空&lt;br&gt;&lt;b&gt;• 通道限制:&lt;/b&gt; 默认支持15个通道 (I0-I14)，可配置&lt;br&gt;&lt;b&gt;• 数据类型:&lt;/b&gt; 所有数据解析为float类型&lt;br&gt;&lt;b&gt;• 错误处理:&lt;/b&gt; 解析失败记录日志但不中断&lt;br&gt;&lt;b&gt;• 编码要求:&lt;/b&gt; 数据必须是有效的UTF-8/ASCII字符&lt;/p&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff9e6;strokeColor=#d6b656;align=center;" vertex="1" parent="proto-1">
+          <mxGeometry x="600" y="420" width="480" height="180" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+</mxfile>
