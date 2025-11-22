@@ -29,7 +29,6 @@ from .serial.serial_manager import SerialManager
 
 class MainWindow(QMainWindow):
     """UniScope 主窗口类"""
-
     # 信号定义
     theme_changed = pyqtSignal(str)  # 'dark' or 'light'
 
@@ -43,6 +42,7 @@ class MainWindow(QMainWindow):
         self.channel_manager = ChannelManager()
         self.serial_manager = SerialManager(self.channel_manager)
         self.data_recorder = DataRecorder(self.channel_manager)
+        
 
         # 状态变量
         self.current_theme = 'dark'
@@ -497,7 +497,9 @@ class MainWindow(QMainWindow):
         """显示连接对话框"""
         dialog = ConnectionDialog(self.current_theme, self)
         dialog.connected.connect(self._on_serial_connect)
-
+        dialog.disconnect.connect(self._disconnect)
+        self.serial_manager.connected.connect(dialog.on_connect_succeeded)
+        self.serial_manager.disconnected.connect(dialog.on_disconnect)
         # 居中显示
         dialog.move(
             self.geometry().center() - dialog.rect().center()
@@ -551,16 +553,6 @@ class MainWindow(QMainWindow):
         # 更新状态栏
         self.status_label.setText(f"Connected to {port}")
 
-        # 显示成功提示
-        QMessageBox.information(
-            self,
-            "Connected",
-            f"Successfully connected to {port}\n"
-            f"Baudrate: {baudrate}\n"
-            f"Protocol: FireWater\n\n"
-            f"Now receiving data..."
-        )
-
     def _on_serial_disconnected(self):
         """串口断开回调"""
         self.is_connected = False
@@ -581,6 +573,7 @@ class MainWindow(QMainWindow):
             "Serial Error",
             f"Serial communication error:\n{error_msg}"
         )
+        self._disconnect()
 
     def _on_serial_connection_lost(self):
         """连接丢失回调"""
@@ -589,6 +582,7 @@ class MainWindow(QMainWindow):
         # 更新 UI
         self.top_bar.set_connected(False, "")
         self.status_label.setText("Connection lost")
+        
 
         # 显示警告
         QMessageBox.warning(
@@ -601,6 +595,7 @@ class MainWindow(QMainWindow):
     def _disconnect(self):
         """断开连接"""
         self.serial_manager.disconnect()
+        
 
     def _show_about(self):
         """显示关于对话框"""
@@ -637,3 +632,10 @@ class MainWindow(QMainWindow):
         """TX 活动回调 - 闪烁 TX 指示灯"""
         if hasattr(self.top_bar, 'tx_indicator'):
             self.top_bar.tx_indicator.flash()
+
+    def closeEvent(self, event):
+        """窗口关闭事件 - 清理资源"""
+        # 完全销毁串口线程
+        if self.serial_manager.serial_thread:
+            self.serial_manager._destroy_thread()
+        event.accept()

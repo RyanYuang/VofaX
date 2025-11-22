@@ -112,18 +112,13 @@ class TerminalWidget(BaseWidget):
         # 协议选择
         if protocol == 'ascii':
             # 处理 RAW 文本数据（ASCII 协议的原始文本）
-            line = data['RAW']#self._format_raw_line(data['RAW'])
+            line = data['RAW']
             self.pending_lines.append(line)
             logger.info(f"[Terminal] Added RAW line: {line}")
-        elif protocol == 'firewater':
-            # 提取channel数量
-            channels = self.get_bound_channels()
-            logger.info(f"[Terminal Firewater] channels: {channels}")
-
         else:
             # FireWater / JustFloat 等数值协议：逐通道显示
-            channels = self.get_bound_channels()
-            
+            logger.info(f"[Terminal] using protocol: {protocol}")
+            channels = self.get_bound_channels()       
             if not channels:
                 channels = [ch for ch in data.keys() if ch != 'RAW']
 
@@ -217,10 +212,13 @@ class TerminalWidget(BaseWidget):
         self.batch_size = batch_size
 
     def update_config(self, widget_data: Dict):
+        import logging
+        logger = logging.getLogger(__name__)
         """Inspector 修改配置时同步协议/显示设置"""
         super().update_config(widget_data)
         self.protocol = self._get_protocol()
-
+        logger.info("[Terminal]: Update Insptector configeraton!")
+        logger.info(f"[Terminal]: Protcol Config:{self.protocol}")
         display_mode = widget_data.get('config', {}).get('displayMode')
         if display_mode and hasattr(self, 'mode_combo'):
             mode_map = {

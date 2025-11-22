@@ -70,6 +70,29 @@ class SerialManager(QObject):
         Returns:
             是否成功开始连接
         """
+        # 如果线程已存在且参数相同，直接恢复
+        if self.serial_thread and self.serial_thread.isRunning():
+            if (self.current_port == port and self.current_baudrate == baudrate):
+                logger.info("Resuming existing serial thread...")
+                success = self.serial_thread.resume(port, baudrate)
+                if success:
+                    self.is_connected = True
+                    self.connected.emit(port, baudrate)
+                    logger.info(f"Serial connection resumed: {port} @ {baudrate}")
+                return success
+            else:
+                # 参数变化，先暂停旧连接，然后用新参数恢复
+                logger.info("Port/baudrate changed, updating connection...")
+                self.serial_thread.pause()
+                success = self.serial_thread.resume(port, baudrate)
+                if success:
+                    self.is_connected = True
+                    self.current_port = port
+                    self.current_baudrate = baudrate
+                    self.connected.emit(port, baudrate)
+                    logger.info(f"Serial connection updated: {port} @ {baudrate}")
+                return success
+
         # 如果已连接，先断开
         if self.is_connected:
             logger.warning("Already connected, disconnecting first")
@@ -94,7 +117,10 @@ class SerialManager(QObject):
             self.serial_thread.rx_tx_stats.connect(self._on_rx_tx_stats)
 
             # 启动线程
-            self.serial_thread.start()
+            logger.info(f"[Serial_Thread] is_Running: {self.serial_thread.isRunning()}")
+            if not self.serial_thread.isRunning():
+                logger.info(f"[Serial_Thread] Starting new thread!")
+                self.serial_thread.start()
 
             # 更新状态
             self.is_connected = True
@@ -113,28 +139,41 @@ class SerialManager(QObject):
             return False
 
     def disconnect(self):
-        """断开串口连接"""
+        """断开串口连接（暂停线程，不销毁）"""
         if not self.is_connected or not self.serial_thread:
             return
 
-        logger.info("Disconnecting serial port...")
-
-        # 停止线程
-        self.serial_thread.stop()
-        self.serial_thread = None
-
-        # 更新状态
-        self.is_connected = False
-        self.current_port = None
-        self.current_baudrate = None
-
-        # 重置通道管理器
-        self.channel_manager.reset()
-
+        logger.info("Disconnecting serial port (pausing thread)...")
         # 发射断开信号
         self.disconnected.emit()
 
-        logger.info("Serial port disconnected")
+
+
+        # 更新状态
+        self.is_connected = False
+        # 保留 current_port 和 current_baudrate 供快速重连
+
+        # 重置通道管理器
+        self.channel_manager.reset()
+        
+        # 暂停线程（关闭串口但保持线程运行）
+        self.serial_thread.pause()
+
+
+        logger.info("Serial port disconnected (thread paused)")
+
+    def _destroy_thread(self):
+        """完全销毁线程（仅在参数变更或程序退出时调用）"""
+        if not self.serial_thread:
+            return
+
+        logger.info("Destroying serial thread...")
+        self.serial_thread.stop()
+        if self.serial_thread.isRunning():
+            self.serial_thread.wait(3000)  # 等待最多3秒
+        self.serial_thread.deleteLater()
+        self.serial_thread = None
+        logger.info("Serial thread destroyed")
 
     def write(self, data: bytes) -> bool:
         """
@@ -235,10 +274,9 @@ class SerialManager(QObject):
         logger.warning("Serial connection lost")
         self.is_connected = False
 
-        # 清理线程
+        # 只暂停线程，不销毁
         if self.serial_thread:
-            self.serial_thread.stop()
-            self.serial_thread = None
+            self.serial_thread.pause()
 
         # 重置通道管理器
         self.channel_manager.reset()

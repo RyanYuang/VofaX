@@ -55,3 +55,6 @@ htmlcov/
 *.sh
 *.md
 !README.md
+
+# Tempoary-doxygen
+doxygen/

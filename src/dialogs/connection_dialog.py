@@ -6,9 +6,8 @@ ConnectionDialog - 串口连接对话框
 
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel,
-    QPushButton, QComboBox, QFrame, QGridLayout
-)
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer
+    QPushButton, QComboBox, QFrame, QGridLayout)
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QPoint
 from PyQt6.QtGui import QIcon
 import serial.tools.list_ports
 
@@ -17,11 +16,17 @@ class ConnectionDialog(QDialog):
     """串口连接配置对话框"""
 
     # 信号: 连接成功 (port, baudrate, databits, stopbits, parity)
-    connected = pyqtSignal(str, int, int, int, str)
+    connected  = pyqtSignal(str, int, int, int, str)
+    disconnect = pyqtSignal() 
 
     def __init__(self, theme: str = 'dark', parent=None):
         super().__init__(parent)
         self.theme = theme
+        self.connectState = parent.is_connected                  # 连接状态
+        self._is_dragging = False
+        self._drag_offset = QPoint()
+        self._header_height = 56
+        self._drag_cursor_active = False
         self.setWindowTitle("Serial Connection")
         self.setFixedWidth(480)
         self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.FramelessWindowHint)
@@ -30,6 +35,12 @@ class ConnectionDialog(QDialog):
         self._setup_ui()
         self._apply_theme()
         self._scan_ports()
+        # 查看当前连接的设备是否还在列表内，如果在的话定位过去
+        if parent.serial_manager.current_port != None:
+            for i in range(self.port_combo.count()):
+                if parent.serial_manager.current_port == self.port_combo.itemData(i):
+                    self.port_combo.setCurrentIndex(i)
+        self._update_ui()
 
     def _setup_ui(self):
         """设置UI"""
@@ -46,8 +57,9 @@ class ConnectionDialog(QDialog):
         content_layout.setSpacing(0)
 
         # 1. 标题栏
-        header = self._create_header()
-        content_layout.addWidget(header)
+        self._header = self._create_header()
+        self._header.setCursor(Qt.CursorShape.SizeAllCursor)
+        content_layout.addWidget(self._header)
 
         # 2. 表单区域
         form = self._create_form()
@@ -93,6 +105,8 @@ class ConnectionDialog(QDialog):
         layout.setSpacing(16)
 
         # 端口选择
+
+        
         port_group = self._create_port_group()
         layout.addWidget(port_group)
 
@@ -234,15 +248,22 @@ class ConnectionDialog(QDialog):
         layout.addWidget(cancel_btn)
 
         # 连接按钮
-        connect_btn = QPushButton("🔌 Connect")
-        connect_btn.setObjectName("connectButton")
-        connect_btn.setFixedHeight(40)
-        connect_btn.setFixedWidth(120)
-        connect_btn.clicked.connect(self._on_connect)
-        layout.addWidget(connect_btn)
+        if self.connectState == True:
+            self.connect_btn = QPushButton("Disconnect")
+            self.connect_btn.setObjectName("connectButton")
+            self.connect_btn.setFixedHeight(40)
+            self.connect_btn.setFixedWidth(120)
+            self.connect_btn.clicked.connect(self._on_disconnect)
+        else:
+            self.connect_btn = QPushButton("Connect")
+            self.connect_btn.setObjectName("connectButton")
+            self.connect_btn.setFixedHeight(40)
+            self.connect_btn.setFixedWidth(120)
+            self.connect_btn.clicked.connect(self._on_connect)
+        layout.addWidget(self.connect_btn)
 
         return footer
-
+        # 以下是信号发送函数，从该类发送到其他的类
     def _scan_ports(self):
         """扫描可用串口"""
         self.port_combo.clear()
@@ -297,12 +318,19 @@ class ConnectionDialog(QDialog):
 
         # 发射连接信号
         self.connected.emit(port, baudrate, databits, int(stopbits), parity)
+        self._update_ui()
         self.accept()
+
+    def _on_disconnect(self):
+        """
+            断开设备
+        """
+        # 发送断连信号
+        self.disconnect.emit()
 
     def _apply_theme(self):
         """应用主题样式"""
-        if self.theme == 'dark':
-            self.setStyleSheet("""
+        dark_theme = """
                 QDialog {
                     background: transparent;
                 }
@@ -358,6 +386,12 @@ class ConnectionDialog(QDialog):
                     border-color: #0A84FF;
                 }
 
+                QComboBox:disabled {
+                    background-color: #1F1F1F;
+                    border-color: #2A2A2A;
+                    color: #6B7280;
+                }
+
                 QComboBox::drop-down {
                     border: none;
                     width: 20px;
@@ -396,6 +430,12 @@ class ConnectionDialog(QDialog):
                     background-color: #4B5563;
                 }
 
+                QPushButton#refreshButton:disabled {
+                    background-color: #1F1F1F;
+                    border-color: #2A2A2A;
+                    color: #4B5563;
+                }
+
                 QFrame#footer {
                     background-color: #252525;
                     border-top: 1px solid #374151;
@@ -415,27 +455,8 @@ class ConnectionDialog(QDialog):
                 QPushButton#cancelButton:hover {
                     background-color: #374151;
                 }
-
-                QPushButton#connectButton {
-                    background-color: #30D158;
-                    border: none;
-                    border-radius: 6px;
-                    color: #FFFFFF;
-                    font-size: 14px;
-                    font-weight: 500;
-                    padding: 8px 16px;
-                }
-
-                QPushButton#connectButton:hover {
-                    background-color: #28A745;
-                }
-
-                QPushButton#connectButton:pressed {
-                    background-color: #20803A;
-                }
-            """)
-        else:  # light theme
-            self.setStyleSheet("""
+            """
+        White_theme = """
                 QDialog {
                     background: transparent;
                 }
@@ -491,6 +512,12 @@ class ConnectionDialog(QDialog):
                     border-color: #0A84FF;
                 }
 
+                QComboBox:disabled {
+                    background-color: #F3F4F6;
+                    border-color: #E5E7EB;
+                    color: #9CA3AF;
+                }
+
                 QComboBox::drop-down {
                     border: none;
                     width: 20px;
@@ -527,6 +554,12 @@ class ConnectionDialog(QDialog):
 
                 QPushButton#refreshButton:pressed {
                     background-color: #E5E7EB;
+                }
+
+                QPushButton#refreshButton:disabled {
+                    background-color: #F9FAFB;
+                    border-color: #E5E7EB;
+                    color: #D1D5DB;
                 }
 
                 QFrame#footer {
@@ -566,8 +599,52 @@ class ConnectionDialog(QDialog):
                 QPushButton#connectButton:pressed {
                     background-color: #289944;
                 }
-            """)
+            """
+        if self.connectState == True:
+            Connect_Btn_Style = \
+            """
+            QPushButton#connectButton {
+                background-color: #F44336;
+                border: none;
+                border-radius: 6px;
+                color: #FFFFFF;
+                font-size: 14px;
+                font-weight: 500;
+                padding: 8px 16px;
+            }
+            QPushButton#connectButton:hover {
+                background-color: #db3c30;
+            }
 
+            QPushButton#connectButton:pressed {
+                background-color: #aa2e25;
+            }
+            """
+        else:
+            Connect_Btn_Style = \
+            """
+            QPushButton#connectButton {
+                background-color: #30D158;
+                border: none;
+                border-radius: 6px;
+                color: #FFFFFF;
+                font-size: 14px;
+                font-weight: 500;
+                padding: 8px 16px;
+                }
+            QPushButton#connectButton:hover {
+                background-color: #28A745;
+            }
+            QPushButton#connectButton:pressed {
+                background-color: #20803A;
+            }
+            """
+        if self.theme == 'dark':
+            self.setStyleSheet(dark_theme + Connect_Btn_Style)
+            # Connect Btn 单独样式
+        else:  # light theme
+            self.setStyleSheet(White_theme + Connect_Btn_Style)
+            
     def get_connection_params(self) -> dict:
         """获取连接参数"""
         return {
@@ -577,3 +654,125 @@ class ConnectionDialog(QDialog):
             'stopbits': {'1': 1, '1.5': 1.5, '2': 2}[self.stopbits_combo.currentText()],
             'parity': {'None': 'N', 'Even': 'E', 'Odd': 'O', 'Mark': 'M', 'Space': 'S'}[self.parity_combo.currentText()]
         }
+    
+    # ====================START Dragging Support START====================
+    def mousePressEvent(self, event):
+        """支持无边框对话框拖拽"""
+        if event.button() == Qt.MouseButton.LeftButton:
+            cursor_pos = event.position().toPoint()
+            if cursor_pos.y() <= self._header_height:
+                self._is_dragging = True
+                self._drag_offset = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+                self.setCursor(Qt.CursorShape.SizeAllCursor)
+                self._drag_cursor_active = True
+                event.accept()
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        # 检测鼠标位置
+        import logging
+        logger = logging.getLogger(__name__)
+        cursor_pos = event.position().toPoint()
+        logger.info("Mouse position in dialog: (%d, %d)", cursor_pos.x(), cursor_pos.y())
+        if self._is_dragging and (event.buttons() & Qt.MouseButton.LeftButton):
+            target_pos = event.globalPosition().toPoint() - self._drag_offset
+            self.move(target_pos)
+            event.accept()
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._is_dragging = False
+            if self._drag_cursor_active:
+                self.unsetCursor()
+                self._drag_cursor_active = False
+            event.accept()
+        super().mouseReleaseEvent(event)
+
+    # ====================END Dragging Support END====================
+    def _update_ui(self):
+        """
+        @ brief         对话框样式管理器
+        @ description   主要是管理连接状态对于dialog的样式变化如:连接成功 connect 按钮更新为 disconnect
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"=================")
+        logger.info(f"Changging Style! ")
+        logger.info(f"=================")
+
+        # 先断开所有旧的信号连接，避免重复绑定
+        try:
+            self.connect_btn.clicked.disconnect()
+        except:
+            pass
+
+        if self.connectState == True:
+            # 更新回调函数以及按钮名称
+            self.connect_btn.setText("Disconnect")
+            self.connect_btn.clicked.connect(self._on_disconnect)
+
+            # 禁用串口配置组件
+            self.port_combo.setEnabled(False)
+            self.port_combo.setToolTip("Disconnect to modify port settings")
+            self.refresh_btn.setEnabled(False)
+            self.refresh_btn.setToolTip("Disconnect to refresh ports")
+            self.baudrate_combo.setEnabled(False)
+            self.baudrate_combo.setToolTip("Disconnect to modify baud rate")
+            self.parity_combo.setEnabled(False)
+            self.parity_combo.setToolTip("Disconnect to modify parity")
+            self.databits_combo.setEnabled(False)
+            self.databits_combo.setToolTip("Disconnect to modify data bits")
+            self.stopbits_combo.setEnabled(False)
+            self.stopbits_combo.setToolTip("Disconnect to modify stop bits")
+
+        else:
+            self.connect_btn.setText("Connect")
+            self.connect_btn.clicked.connect(self._on_connect)
+
+            # 启用串口配置组件并清除工具提示
+            self.port_combo.setEnabled(True)
+            self.port_combo.setToolTip("")
+            self.refresh_btn.setEnabled(True)
+            self.refresh_btn.setToolTip("Scan for ports")
+            self.baudrate_combo.setEnabled(True)
+            self.baudrate_combo.setToolTip("")
+            self.parity_combo.setEnabled(True)
+            self.parity_combo.setToolTip("")
+            self.databits_combo.setEnabled(True)
+            self.databits_combo.setToolTip("")
+            self.stopbits_combo.setEnabled(True)
+            self.stopbits_combo.setToolTip("")
+
+        self._apply_theme()
+        logger.info(f"=================")
+        logger.info(f"Changging Style! Done")
+        logger.info(f"=================")
+
+            
+    # 以下是接收信号的回调函数
+    def on_connect_succeeded(self,port, baudrate):
+        """
+        @ brief         连接成功回调函数
+        @ description   在这里主要是更新UI以及UI的属性
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"=================")
+        logger.info(f"connected success:\nport:{port}\nbaudrate:{baudrate}")
+        logger.info(f"=================")
+        self.connectState = True
+        self._update_ui()
+    
+    def on_disconnect(self):
+        """
+        @ brief         断开连接完成的回调函数
+        @ description   在这里主要是更新UI以及UI的属性
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"=================")
+        logger.info(f"Disconnect to Device")
+        logger.info(f"=================")
+        self.connectState = False
+        self._update_ui()

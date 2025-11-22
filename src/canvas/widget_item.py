@@ -390,24 +390,6 @@ class WidgetItem(QGraphicsProxyWidget):
             container = self.widget()
             self._update_container_style(container, selected=selected)
 
-    def update_widget(self, updates: Dict[str, Any]):
-        """更新 Widget 数据"""
-        self.widget_data.update(updates)
-
-        # 更新位置和大小
-        if 'x' in updates or 'y' in updates:
-            self.setPos(
-                updates.get('x', self.widget_data['x']),
-                updates.get('y', self.widget_data['y'])
-            )
-
-        if 'width' in updates or 'height' in updates:
-            if self.widget():
-                self.widget().setFixedSize(
-                    updates.get('width', self.widget_data['width']),
-                    updates.get('height', self.widget_data['height'])
-                )
-
     def _toggle_lock(self):
         """切换锁定状态"""
         self.is_locked = not self.is_locked

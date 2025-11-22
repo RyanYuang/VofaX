@@ -67,6 +67,7 @@ class SerialThread(QThread):
 
         self.serial_port: Optional[serial.Serial] = None
         self.running = False
+        self.paused = False  # 新增：暂停标志
 
         # 统计
         self.rx_bytes = 0
@@ -76,6 +77,7 @@ class SerialThread(QThread):
         self.buffer = bytearray()
 
     def run(self):
+        logger.info("Enter Serial Thread!")
         """线程主循环 - 读取串口数据"""
         try:
             # 打开串口
@@ -98,6 +100,11 @@ class SerialThread(QThread):
             # 主循环
             while self.running:
                 try:
+                    # 如果暂停，只休眠不读取数据
+                    if self.paused:
+                        time.sleep(0.1)  # 暂停时休眠100ms
+                        continue
+
                     # 读取数据
                     if self.serial_port.in_waiting > 0:
                             data = self.serial_port.read(self.serial_port.in_waiting)
@@ -122,6 +129,7 @@ class SerialThread(QThread):
                     logger.error(f"Unexpected error in main loop: {e}")
                     self.error_occurred.emit(f"Serial Device disconnected!")
                     break
+                
 
         except serial.SerialException as e:
             logger.error(f"Failed to open serial port: {e}")
@@ -139,17 +147,17 @@ class SerialThread(QThread):
         """
         # 添加到缓冲区
         self.buffer.extend(data)
-
+        self._parse_ascii()
         # 根据协议解析数据
         if self.protocol == self.PROTOCOL_FIREWATER:
             self._parse_firewater()
-            logger.info("[FireWater]")
+            logger.info("[parse_Selecot]:[FireWater]")
         elif self.protocol == self.PROTOCOL_JUSTFLOAT:
             self._parse_justfloat()
-            logger.info("[justfloat]")
+            logger.info("[parse_Selecot]:[justfloat]")
         elif self.protocol == self.RAW_DATA:
-            self._parse_ascii()
-            logger.info("[RAW]")
+            
+            logger.info("[parse_Selecot]:[RAW]")
 
     def _parse_firewater(self):
         """
@@ -176,12 +184,6 @@ class SerialThread(QThread):
 
             # 移除已处理的数据
             self.buffer = self.buffer[tail_index + 4:]
-
-            # 解析浮点数
-            # float_count = len(packet) // 4
-            # if float_count == 0 or float_count > self.channel_count:
-            #     logger.warning(f"Invalid float count: {float_count}")
-            #     continue
 
             try:
                 # 解包
@@ -276,10 +278,55 @@ class SerialThread(QThread):
             self.error_occurred.emit(f"Write error: {str(e)}")
             return False
 
+    def pause(self):
+        """暂停串口读取（不关闭串口，线程继续运行）"""
+        logger.info("Pausing serial thread...")
+        self.paused = True
+        if self.serial_port and self.serial_port.is_open:
+            # self.serial_port.close()
+            logger.info("Serial port closed (paused)")
+
+    def resume(self, port: str = None, baudrate: int = None):
+        """恢复串口读取（重新打开串口）"""
+        # 如果提供了新参数，更新配置
+        if port:
+            self.port = port
+        if baudrate:
+            self.baudrate = baudrate
+
+        logger.info(f"Resuming serial thread on {self.port} @ {self.baudrate}...")
+
+        try:
+            # 重新打开串口
+            self.serial_port = serial.Serial(
+                port=self.port,
+                baudrate=self.baudrate,
+                bytesize=self.databits,
+                stopbits=self.stopbits,
+                parity=self.parity,
+                timeout=0.1,
+                write_timeout=1.0
+            )
+
+            if not self.serial_port.is_open:
+                raise serial.SerialException(f"Failed to open {self.port}")
+
+            self.paused = False
+            self.buffer.clear()  # 清空旧缓冲区
+            logger.info("Serial port reopened and resumed")
+            return True
+
+        except serial.SerialException as e:
+            logger.error(f"Failed to resume serial port: {e}")
+            self.error_occurred.emit(f"Resume failed: {str(e)}")
+            return False
+
     def stop(self):
-        """停止线程"""
+        """完全停止线程（用于程序退出）"""
+        logger.info("Stopping serial thread...")
         self.running = False
-        self.wait(2000)  # 等待最多 2 秒
+        self.paused = False
+
 
     def _close_port(self):
         """关闭串口"""

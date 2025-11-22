@@ -69,6 +69,7 @@ class BaseWidget(QWidget, ABC, metaclass=QABCMeta):
 
     def _process_pending_updates(self):
         """处理待更新的数据（节流后）"""
+        
         if self.pending_data:
             # 调用子类的更新方法
             self._on_data_update(self.pending_data.copy())

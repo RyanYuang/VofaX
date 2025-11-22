@@ -1,5 +1,11 @@
 """
-RecordingDialog - 数据录制控制对话框
+ @file          RecordingDialog.py
+ @brief         数据录制控制对话框
+ @details       主要包含一个数据录制控制类
+ @author        RyanYuang
+ @date          2025-11-22
+ @version       V1.0
+ @copyright     Copyright(c)
 """
 
 from PyQt6.QtWidgets import (
@@ -17,9 +23,9 @@ class RecordingDialog(QDialog):
 
     def __init__(self, data_recorder, channel_manager, theme: str = 'dark', parent=None):
         super().__init__(parent)
-        self.data_recorder = data_recorder
-        self.channel_manager = channel_manager
-        self.theme = theme
+        self.data_recorder = data_recorder      #   数据数据记录器
+        self.channel_manager = channel_manager  #   通道管理器
+        self.theme = theme                      #   主题
 
         self.setWindowTitle("Data Recording")
         self.setModal(False)  # 非模态对话框
