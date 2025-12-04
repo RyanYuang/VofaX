@@ -8,7 +8,7 @@ from typing import Dict, Union
 import logging
 
 logger = logging.getLogger(__name__)
-
+logger.setLevel(logging.DEBUG)
 
 class FireWaterEngine(BaseDataEngine):
     """

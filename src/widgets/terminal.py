@@ -110,31 +110,33 @@ class TerminalWidget(BaseWidget):
         logger.info(f"[Terminal] Using protocol: {protocol}")
 
         # 协议选择
-        if protocol == 'ascii':
-            # 处理 RAW 文本数据（ASCII 协议的原始文本）
-            line = data['RAW']
-            self.pending_lines.append(line)
-            logger.info(f"[Terminal] Added RAW line: {line}")
-        else:
-            # FireWater / JustFloat 等数值协议：逐通道显示
-            logger.info(f"[Terminal] using protocol: {protocol}")
-            channels = self.get_bound_channels()       
-            if not channels:
-                channels = [ch for ch in data.keys() if ch != 'RAW']
-
-            for channel in channels:
-                if channel not in data:
-                    continue
-
-                value = data[channel]
-                if isinstance(value, (int, float)):
-                    line = self._format_data_line(channel, value)
-                else:
-                    line = self._format_raw_line(value)
-
-                self.pending_lines.append(line)
-                logger.info(f"[Terminal] Added channel line: {line}")
-
+        # if protocol == 'ascii':
+        #     # 处理 RAW 文本数据（ASCII 协议的原始文本）
+        #     print(data)
+        #     line = data
+        #     self.pending_lines.append(line)
+        #     logger.info(f"[Terminal] Added RAW line: {line}")
+        # else:
+        #     # FireWater / JustFloat 等数值协议：逐通道显示
+        #     logger.info(f"[Terminal] using protocol: {protocol}")
+        #     channels = self.get_bound_channels()
+        #     if not channels:
+        #         channels = [ch for ch in data.keys() if ch != 'RAW']
+        #
+        #     for channel in channels:
+        #         if channel not in data:
+        #             continue
+        #
+        #         value = data[channel]
+        #         if isinstance(value, (int, float)):
+        #             line = self._format_data_line(channel, value)
+        #         else:
+        #             line = self._format_raw_line(value)
+        #
+        #         self.pending_lines.append(line)
+        #         logger.info(f"[Terminal] Added channel line: {line}")
+        line = data.get("RAW")# 只读取RAW数据
+        self.pending_lines.append(line)
         # 批量追加到显示区域
         if len(self.pending_lines) >= self.batch_size:
             self._flush_pending_lines()

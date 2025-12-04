@@ -1,14 +1,15 @@
 """
-SerialThread - 串口通信线程
-负责异步读写串口数据，解析协议
+SerialThread - 串口通信线程（重构版）
+负责异步读写串口数据，使用可插拔的数据引擎进行协议解析
 """
 
 from PyQt6.QtCore import QThread, pyqtSignal
 import serial
-import struct
 import time
 from typing import Optional, Dict, Union
 import logging
+
+from ..data_engines import BaseDataEngine, get_engine_manager
 
 logger = logging.getLogger(__name__)
 
@@ -16,22 +17,23 @@ logger = logging.getLogger(__name__)
 class SerialThread(QThread):
     """
     串口通信线程 (QThread)
-    支持多种协议格式：FireWater, JustFloat, ASCII
+
+    职责:
+    - 异步读取串口数据
+    - 使用数据引擎解析协议
+    - 发射解析后的数据信号
+
+    与旧版区别:
+    - 协议解析逻辑分离到独立的数据引擎
+    - 支持运行时切换引擎
+    - 更容易添加自定义协议
     """
 
     # 信号定义
-    data_received = pyqtSignal(dict)  # {channel: value} 批量数据，value 可以是 float 或 str
+    data_received = pyqtSignal(dict)  # {channel: value} 批量数据
     error_occurred = pyqtSignal(str)  # 错误信息
     connection_lost = pyqtSignal()  # 连接丢失
     rx_tx_stats = pyqtSignal(int, int)  # RX bytes, TX bytes
-
-    # 协议常量
-    PROTOCOL_FIREWATER = 'firewater'  # VOFA+ FireWater 格式
-    PROTOCOL_JUSTFLOAT = 'justfloat'  # VOFA+ JustFloat 格式
-    RAW_DATA = 'ascii'  # ASCII 格式 (e.g., "CH0:1.23,CH1:4.56\n")
-
-    # FireWater 尾巴: 0x00 0x00 0x80 0x7F (float: inf)
-    FIREWATER_TAIL = b'\n'
 
     def __init__(
         self,
@@ -40,8 +42,8 @@ class SerialThread(QThread):
         databits: int = 8,
         stopbits: int = 1,
         parity: str = 'N',
-        protocol: str = RAW_DATA,
-        channel_count: int = 15
+        engine_name: str = 'firewater',
+        engine_config: Optional[Dict] = None
     ):
         """
         初始化串口线程
@@ -52,33 +54,93 @@ class SerialThread(QThread):
             databits: 数据位
             stopbits: 停止位
             parity: 校验位 ('N', 'E', 'O', 'M', 'S')
-            protocol: 协议类型
-            channel_count: 通道数量 (FireWater/JustFloat)
+            engine_name: 数据引擎名称
+            engine_config: 引擎配置参数
         """
         super().__init__()
 
+        # 串口参数
         self.port = port
         self.baudrate = baudrate
         self.databits = databits
         self.stopbits = stopbits
         self.parity = parity
-        self.protocol = protocol
-        self.channel_count = channel_count
 
+        # Raw数据引擎(必要的）
+        self.Raw_engine: Optional[BaseDataEngine] = None
+
+        # 数据引擎
+        self.engine_name = engine_name
+        self.engine_config = engine_config or {}
+        self.engine: Optional[BaseDataEngine] = None
+        logger.info("Ready to initialize engine!")
+        self._init_engine()
+
+
+
+
+        # 串口对象
         self.serial_port: Optional[serial.Serial] = None
         self.running = False
-        self.paused = False  # 新增：暂停标志
+        self.paused = False
 
         # 统计
         self.rx_bytes = 0
         self.tx_bytes = 0
 
-        # 缓冲区 (用于处理不完整数据包)
+        # 缓冲区
         self.buffer = bytearray()
 
+    def _init_engine(self):
+        """初始化数据引擎"""
+        manager = get_engine_manager()
+        self.engine = manager.create_engine(self.engine_name, **self.engine_config)
+
+        if self.engine is None:
+            logger.error(f"Failed to create engine '{self.engine_name}', falling back to 'ascii'")
+            self.engine = manager.create_engine('ascii')
+        # 创建RawData Engine
+        self.Raw_engine = manager.create_engine('ascii')
+
+        logger.info(f"Initialized data engine: {self.engine.get_name()}")
+
+    def set_engine(self, engine_name: str, engine_config: Optional[Dict] = None) -> bool:
+        """
+        切换数据引擎
+
+        Args:
+            engine_name: 新引擎名称
+            engine_config: 新引擎配置
+
+        Returns:
+            是否切换成功
+        """
+        manager = get_engine_manager()
+        new_engine = manager.create_engine(engine_name, **(engine_config or {}))
+
+        if new_engine is None:
+            logger.error(f"Failed to create engine '{engine_name}'")
+            return False
+
+        # 重置旧引擎
+        if self.engine:
+            self.engine.reset()
+
+        # 切换引擎
+        self.engine = new_engine
+        self.engine_name = engine_name
+        self.engine_config = engine_config or {}
+
+        # 清空缓冲区（避免旧数据干扰）
+        self.buffer.clear()
+
+        logger.info(f"Switched to engine: {engine_name}")
+        return True
+
     def run(self):
-        logger.info("Enter Serial Thread!")
         """线程主循环 - 读取串口数据"""
+        logger.info("Serial thread started")
+
         try:
             # 打开串口
             self.serial_port = serial.Serial(
@@ -102,21 +164,21 @@ class SerialThread(QThread):
                 try:
                     # 如果暂停，只休眠不读取数据
                     if self.paused:
-                        time.sleep(0.1)  # 暂停时休眠100ms
+                        time.sleep(0.1)
                         continue
-
                     # 读取数据
                     if self.serial_port.in_waiting > 0:
-                            data = self.serial_port.read(self.serial_port.in_waiting)
-                            if data:
-                                self.rx_bytes += len(data)
-                                # Debug: 打印接收到的原始数据（使用 INFO 级别确保能看到）
-                                logger.info(f"[RX] Received {len(data)} bytes: {data.hex()}")
-                                logger.info(f"[RX] ASCII preview: {data[:50]}")  # 前50字节的ASCII预览
-                                self._process_data(data)
+                        data = self.serial_port.read(self.serial_port.in_waiting)
+                        if data:
+                            self.rx_bytes += len(data)
+                            logger.debug(f"[RX] Received {len(data)} bytes: {data.hex()}")
 
-                                # 每秒更新一次统计
-                                self.rx_tx_stats.emit(self.rx_bytes, self.tx_bytes)
+                            # 处理数据
+                            self._process_data(data)
+
+                            # 更新统计
+                            self.rx_tx_stats.emit(self.rx_bytes, self.tx_bytes)
+
                     # 短暂休眠，避免CPU占用过高
                     time.sleep(0.001)  # 1ms
 
@@ -127,9 +189,8 @@ class SerialThread(QThread):
                     break
                 except Exception as e:
                     logger.error(f"Unexpected error in main loop: {e}")
-                    self.error_occurred.emit(f"Serial Device disconnected!")
+                    self.error_occurred.emit(f"Serial device disconnected!")
                     break
-                
 
         except serial.SerialException as e:
             logger.error(f"Failed to open serial port: {e}")
@@ -147,114 +208,32 @@ class SerialThread(QThread):
         """
         # 添加到缓冲区
         self.buffer.extend(data)
-        self._parse_ascii()
-        # 根据协议解析数据
-        if self.protocol == self.PROTOCOL_FIREWATER:
-            self._parse_firewater()
-            logger.info("[parse_Selecot]:[FireWater]")
-        elif self.protocol == self.PROTOCOL_JUSTFLOAT:
-            self._parse_justfloat()
-            logger.info("[parse_Selecot]:[justfloat]")
-        elif self.protocol == self.RAW_DATA:
-            
-            logger.info("[parse_Selecot]:[RAW]")
 
-    def _parse_firewater(self):
-        """
-        解析 VOFA+ FireWater 协议
-        格式: [Data_1],[Data_2],[Data_3]\n
-        """
-        while len(self.buffer) >= 4:
-            # 查找尾巴
-            tail_index = self.buffer.find(self.FIREWATER_TAIL)
+        # 使用数据引擎解析
+        while len(self.buffer) > 0:
+            # 首先使用Raw_data_engine解析数据
+            raw_data = self.Raw_engine.parse(self.buffer)
+            # 使用制定的数据引擎解析数据
+            result = self.engine.parse(self.buffer)
+            # 清理已消耗的数据
+            if result.consumed_bytes > 0:
+                self.buffer = self.buffer[result.consumed_bytes:]
+                logger.debug(f"Consumed {result.consumed_bytes} bytes, buffer remaining: {len(self.buffer)}")
 
-            if tail_index == -1:
-                # 未找到尾巴，等待更多数据
-                logger.info(f"[FireWater] No tail found in buffer (size: {len(self.buffer)})")
-                logger.info(f"[FireWater] Buffer preview (hex): {self.buffer[:64].hex()}")
-                # 但防止缓冲区过大
-                if len(self.buffer) > 1024:
-                    logger.warning("Buffer overflow, clearing")
-                    self.buffer.clear()
+
+            # 如果成功解析，发射信号 ，terminal的信号应该是rawdata
+            if result.success and result.data:
+                logger.info(f"[{self.engine.get_name()}] Parsed data: {result.data}")
+                result.data["RAW"] = raw_data.data.get("RAW")
+                self.data_received.emit(result.data)
+
+            # 如果没有消耗字节且未成功，说明需要等待更多数据
+            if result.consumed_bytes == 0 and not result.success:
                 break
 
-            # 提取完整包 (不包含尾巴)
-            packet = bytes(self.buffer[:tail_index])
-            logger.debug(f"[FireWater] Found packet: {len(packet)} bytes at tail_index={tail_index}")
-
-            # 移除已处理的数据
-            self.buffer = self.buffer[tail_index + 4:]
-
-            try:
-                # 解包
-                unpack = self.buffer.split(',')
-                print("=====",unpack,"=====")
-                        
-
-                # 构造数据字典 {I0: value0, I1: value1, ...}
-                data_dict = {}
-                for i, value in enumerate(values):
-                    if i < self.channel_count:
-                        data_dict[f'I{i}'] = float(value)
-
-                # Debug: 打印解析后的数据（使用 INFO 确保能看到）
-                logger.info(f"[FireWater] ✓ Parsed data: {data_dict}")
-
-                # 发射信号
-                self.data_received.emit(data_dict)
-                logger.info(f"[FireWater] ✓ Emitted data_received signal")
-
-            except struct.error as e:
-                logger.error(f"Failed to unpack FireWater packet: {e}")
-
-    def _parse_justfloat(self):
-        """
-        解析 VOFA+ JustFloat 协议
-        格式: [float0][float1]...[floatN] (固定 N 个浮点数)
-        """
-        packet_size = self.channel_count * 4
-
-        while len(self.buffer) >= packet_size:
-            # 提取数据包
-            packet = bytes(self.buffer[:packet_size])
-            self.buffer = self.buffer[packet_size:]
-
-            try:
-                # 解包小端序浮点数
-                values = struct.unpack(f'<{self.channel_count}f', packet)
-
-                # 构造数据字典
-                data_dict = {}
-                for i, value in enumerate(values):
-                    data_dict[f'I{i}'] = float(value)
-
-                # 发射信号
-                self.data_received.emit(data_dict)
-
-            except struct.error as e:
-                logger.error(f"Failed to unpack JustFloat packet: {e}")
-
-    def _parse_ascii(self):
-        """
-        RAW_DATA 协议
-        不对内容进行解析，直接把输入按文本原样显示
-        """
-        if not self.buffer:
-            return
-
-        try:
-            # 直接把缓冲区内容解码为字符串；使用 errors='replace' 避免因为半个字符导致异常
-            raw_text = self.buffer.decode('utf-8', errors='replace')
-        except Exception as e:
-            logger.warning(f"[RAW_DATA] Failed to decode buffer: {e}")
-            self.buffer.clear()
-            return
-
-        if raw_text:
-            logger.info(f"[RAW_DATA] Forwarding raw text ({len(raw_text)} chars)")
-            self.data_received.emit({'RAW': raw_text})
-
-        self.buffer.clear()
+            # 如果有错误消息，记录日志
+            if result.error_message:
+                logger.warning(f"Parse warning: {result.error_message}")
 
     def write(self, data: bytes) -> bool:
         """
@@ -282,13 +261,9 @@ class SerialThread(QThread):
         """暂停串口读取（不关闭串口，线程继续运行）"""
         logger.info("Pausing serial thread...")
         self.paused = True
-        if self.serial_port and self.serial_port.is_open:
-            # self.serial_port.close()
-            logger.info("Serial port closed (paused)")
 
     def resume(self, port: str = None, baudrate: int = None):
         """恢复串口读取（重新打开串口）"""
-        # 如果提供了新参数，更新配置
         if port:
             self.port = port
         if baudrate:
@@ -297,7 +272,6 @@ class SerialThread(QThread):
         logger.info(f"Resuming serial thread on {self.port} @ {self.baudrate}...")
 
         try:
-            # 重新打开串口
             self.serial_port = serial.Serial(
                 port=self.port,
                 baudrate=self.baudrate,
@@ -327,7 +301,6 @@ class SerialThread(QThread):
         self.running = False
         self.paused = False
 
-
     def _close_port(self):
         """关闭串口"""
         if self.serial_port and self.serial_port.is_open:
@@ -341,12 +314,7 @@ class SerialThread(QThread):
         self.running = False
 
     def get_stats(self) -> Dict[str, int]:
-        """
-        获取统计信息
-
-        Returns:
-            {'rx_bytes': int, 'tx_bytes': int}
-        """
+        """获取统计信息"""
         return {
             'rx_bytes': self.rx_bytes,
             'tx_bytes': self.tx_bytes
@@ -356,3 +324,14 @@ class SerialThread(QThread):
         """重置统计信息"""
         self.rx_bytes = 0
         self.tx_bytes = 0
+
+    def get_engine_info(self) -> Dict:
+        """获取当前引擎信息"""
+        if self.engine is None:
+            return {}
+
+        return {
+            'name': self.engine.get_name(),
+            'description': self.engine.get_description(),
+            'channels': self.engine.get_channel_names()
+        }

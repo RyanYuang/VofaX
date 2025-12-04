@@ -52,8 +52,8 @@ class SerialManager(QObject):
         databits: int = 8,
         stopbits: int = 1,
         parity: str = 'N',
-        protocol: str = SerialThread.PROTOCOL_FIREWATER,
-        channel_count: int = 15
+        engine_name: str = 'firewater',
+        engine_config: Optional[Dict] = None
     ) -> bool:
         """
         连接串口
@@ -64,8 +64,8 @@ class SerialManager(QObject):
             databits: 数据位
             stopbits: 停止位
             parity: 校验位
-            protocol: 协议类型
-            channel_count: 通道数量
+            engine_name: 数据引擎名称
+            engine_config: 引擎配置参数
 
         Returns:
             是否成功开始连接
@@ -99,15 +99,15 @@ class SerialManager(QObject):
             self.disconnect()
 
         try:
-            # 创建串口线程
+            # 创建串口线程（使用新的数据引擎架构）
             self.serial_thread = SerialThread(
                 port=port,
                 baudrate=baudrate,
                 databits=databits,
                 stopbits=stopbits,
                 parity=parity,
-                protocol=protocol,
-                channel_count=channel_count
+                engine_name=engine_name,
+                engine_config=engine_config
             )
 
             # 连接信号
@@ -294,16 +294,30 @@ class SerialManager(QObject):
         """
         self.rx_tx_stats.emit(rx_bytes, tx_bytes)
 
-    def set_protocol(self, protocol: str):
+    def set_engine(self, engine_name: str, engine_config: Optional[Dict] = None) -> bool:
         """
-        设置协议 (仅在未连接时有效)
+        设置/切换数据引擎
 
         Args:
-            protocol: 协议类型 ('firewater', 'justfloat', 'ascii')
+            engine_name: 引擎名称 ('firewater', 'justfloat', 'ascii', 或自定义引擎)
+            engine_config: 引擎配置参数
+
+        Returns:
+            是否切换成功
         """
-        if self.is_connected:
-            logger.warning("Cannot change protocol while connected")
+        if not self.serial_thread:
+            logger.warning("No serial thread to set engine")
             return False
 
-        # 可以在这里保存协议设置供下次连接使用
-        return True
+        return self.serial_thread.set_engine(engine_name, engine_config)
+
+    def get_engine_info(self) -> Dict:
+        """
+        获取当前引擎信息
+
+        Returns:
+            引擎信息字典
+        """
+        if self.serial_thread:
+            return self.serial_thread.get_engine_info()
+        return {}

@@ -532,8 +532,8 @@ class MainWindow(QMainWindow):
             databits=databits,
             stopbits=int(stopbits),
             parity=parity,
-            protocol='ascii',  # 使用 ASCII 协议解析文本数据
-            channel_count=15
+            # protocol='ascii',  # 使用 ASCII 协议解析文本数据
+            # channel_count=15
         )
 
         if not success:

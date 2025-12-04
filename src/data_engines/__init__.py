@@ -7,7 +7,7 @@ from .base_engine import BaseDataEngine, ParseResult
 from .firewater_engine import FireWaterEngine
 from .justfloat_engine import JustFloatEngine
 from .ascii_engine import ASCIIEngine
-from .engine_manager import DataEngineManager
+from .engine_manager import DataEngineManager, get_engine_manager
 
 __all__ = [
     'BaseDataEngine',
@@ -15,5 +15,6 @@ __all__ = [
     'FireWaterEngine',
     'JustFloatEngine',
     'ASCIIEngine',
-    'DataEngineManager'
+    'DataEngineManager',
+    'get_engine_manager'
 ]
