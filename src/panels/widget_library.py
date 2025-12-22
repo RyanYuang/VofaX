@@ -5,13 +5,16 @@ Widget 库面板 (优化版)
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QPushButton, QScrollArea, QLineEdit, QFrame
+    QPushButton, QScrollArea, QLineEdit, QFrame,
+    QTabWidget, QSizePolicy, QComboBox
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QMimeData, QPropertyAnimation, QEasingCurve, QSize
-from PyQt6.QtGui import QDrag, QPixmap, QPainter, QColor
+from PyQt6.QtGui import QDrag, QPixmap, QPainter, QColor, QFont, QImage, QIcon
 from PyQt6.QtSvg import QSvgRenderer
 from pathlib import Path
+import os
 
+base_path = os.path.dirname(os.path.abspath(__file__))
 
 class WidgetLibraryItem(QFrame):
     """Widget 库项目"""
@@ -227,17 +230,37 @@ class WidgetLibrary(QWidget):
     collapsed_changed = pyqtSignal(bool)  # 折叠状态变化
 
     # 宽度常量
-    EXPANDED_WIDTH = 280
+    EXPANDED_WIDTH = 300
     COLLAPSED_WIDTH = 68
 
     def __init__(self, theme: str = 'dark'):
         super().__init__()
+        # 定义QT组件
+        self.Serial_Info_Label = None
+        self.connect_label = None
+        self.widget_items = None
+        self.widgetlib_scroll = None
+        self.Icons_Normal = None
+        self.Protocol_layout = None
+        self.Protocol_widget = None
+        self.port_layout = None
+        self.port_widget = None
+        self.Search_Input = None
+        self.Widget_Libary_Layout = None
+        self.Widget_Library = None
+        self.Tab = None
+        self.Icons_Active = None
+        self.scroll_layout = None
+        self.search_layout = None
+        self.search_Widget = None
+        self.Icon_Base_Path = None
         self.theme = theme
         self.is_collapsed = False
 
         self.setFixedWidth(self.EXPANDED_WIDTH)
         self._setup_ui()
         self._setup_animation()
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
     def _get_widgets_from_registry(self):
         """从 WidgetRegistry 获取 widget 列表"""
@@ -254,90 +277,84 @@ class WidgetLibrary(QWidget):
             })
         return widgets
 
+    def TabBar_onChanged(self,index):
+        for i in range(self.Tab.count()):
+            print(i)
+            if i == index:
+                icon_path = self.Icon_Base_Path + self.Icons_Active[i]
+            else:
+                icon_path = self.Icon_Base_Path + self.Icons_Normal[i]
+            self.Tab.tabBar().setTabIcon(i,QIcon(icon_path))
+
     def _setup_ui(self):
         """设置UI"""
+
+        # 创建整个部件的布局样式
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(0, 0, 0, 0)
         self.main_layout.setSpacing(0)
 
-        # 标题栏
-        self.header = QWidget()
-        self.header.setFixedHeight(50)
-        header_layout = QHBoxLayout(self.header)
-        header_layout.setContentsMargins(16, 12, 16, 12)
+        # Header部分
+        self.header_widget = QWidget(self)
+        self.header_layout = QHBoxLayout(self.header_widget)
+        self.header_layout.setContentsMargins(0, 14, 0, 14)
 
-        self.title_label = QLabel("Widget Library")
-        self.title_label.setStyleSheet("font-size: 12px; color: #999999; font-weight: 500;")
-        header_layout.addWidget(self.title_label)
+        # 获取资源绝对路径
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        icon_path = os.path.join(base_path, "../../Image_Src/Icon/Left_Side/Widget_Active.png")
+        print(icon_path)
+        # 创建ICON
+        self.Icon_Label = QLabel(self.header_widget)
+        self.Icon_Label.setPixmap(QPixmap(icon_path))
+        self.Icon_Label.setFixedSize(16,16)
+        self.Icon_Label.setScaledContents(True)
+        self.Icon_Label.setProperty("Icon_Label",True)
+        self.Icon_Label.move(16,20)
 
-        header_layout.addStretch()
 
-        # 折叠按钮
-        self.collapse_btn = QPushButton("◀")
-        self.collapse_btn.setFixedSize(24, 24)
-        self.collapse_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.collapse_btn.setToolTip("Collapse panel (Ctrl+B)")
-        self.collapse_btn.clicked.connect(self.toggle_collapse)
-        header_layout.addWidget(self.collapse_btn)
+        # Header Text
+        self.header_text = QLabel(self.header_widget)
+        self.header_text.setText("Widget Libary")
+        self.header_text.setFont(QFont('Arimo', 14))
+        self.header_text.setContentsMargins(40,0,0,0)
 
-        self.main_layout.addWidget(self.header)
+        # Header Btn
+        self.header_fold_btn = QPushButton(self.header_widget)
+        # 获取资源的绝对位置
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        icon_path = os.path.join(base_path, "../../Image_Src/Icon/Left_Side/Fold.png")
+        # 创建ICON
+        Icon = QIcon(icon_path)
+        self.header_fold_btn.setIcon(Icon)
+        self.header_fold_btn.setIconSize(QSize(24, 24))
+        self.header_fold_btn.setFixedSize(30, 30)
+        self.header_fold_btn.setStyleSheet(
+            """
+                QPushButton
+                {
+                    background-color: transparent;
+                    margin-right: 20px;
+                }
+            """
+        )
+        self.header_fold_btn.clicked.connect(self.collapse)
 
-        # 搜索框
-        self.search_widget = QWidget()
-        search_layout = QHBoxLayout(self.search_widget)
-        search_layout.setContentsMargins(16, 0, 16, 12)
+        # 添加页面标签到head layout
+        self.header_layout.addWidget(self.header_text)
+        self.header_layout.addWidget(self.header_fold_btn)
+        # 添加head widget到main layout
+        self.main_layout.addWidget(self.header_widget)
 
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search widgets...")
-        self.search_input.textChanged.connect(self._filter_widgets)
-        search_layout.addWidget(self.search_input)
+        # 初始化TabBar
+        self.setup_sidebar()
+        # 初始化widgetlibrary
+        self.Setup_Widget_Library()
+        # 初始化port页面
+        self.setup_port()
 
-        self.main_layout.addWidget(self.search_widget)
 
-        # 滚动区域
-        self.scroll = QScrollArea()
-        self.scroll.setWidgetResizable(True)
-        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
 
-        scroll_content = QWidget()
-        self.scroll_layout = QVBoxLayout(scroll_content)
-        self.scroll_layout.setContentsMargins(16, 0, 16, 16)
-        self.scroll_layout.setSpacing(8)
 
-        # 添加所有 Widget 项
-        self.widget_items = []
-        widgets = self._get_widgets_from_registry()
-        for widget_def in widgets:
-            item = WidgetLibraryItem(
-                widget_def['type'],
-                widget_def['label'],
-                widget_def['description'],
-                widget_def['icon'],
-                self.theme
-            )
-            item.clicked.connect(lambda t=widget_def['type']: self.widget_requested.emit(t, 100, 100))
-            self.scroll_layout.addWidget(item)
-            self.widget_items.append(item)
-
-        self.scroll_layout.addStretch()
-
-        self.scroll.setWidget(scroll_content)
-        self.main_layout.addWidget(self.scroll)
-
-        # 提示区域
-        self.tip_widget = QWidget()
-        tip_layout = QVBoxLayout(self.tip_widget)
-        tip_layout.setContentsMargins(16, 12, 16, 12)
-
-        self.tip_label = QLabel("💡 Tip")
-        self.tip_label.setStyleSheet("font-size: 11px; color: #999999;")
-        tip_layout.addWidget(self.tip_label)
-
-        self.tip_text = QLabel("Drag widgets onto the canvas or click to add them")
-        self.tip_text.setStyleSheet("font-size: 10px; color: #666666;")
-        self.tip_text.setWordWrap(True)
-        tip_layout.addWidget(self.tip_text)
 
         self.main_layout.addWidget(self.tip_widget)
 
@@ -378,10 +395,10 @@ class WidgetLibrary(QWidget):
     def _prepare_collapse(self):
         """准备折叠（隐藏不必要的元素）"""
         # 隐藏标题文字
-        self.title_label.hide()
+        # self.title_label.hide()
 
         # 隐藏搜索框
-        self.search_widget.hide()
+        # self.sear.hide()
 
         # 隐藏提示区域
         self.tip_widget.hide()
@@ -452,3 +469,384 @@ class WidgetLibrary(QWidget):
             return QSize(self.COLLAPSED_WIDTH, 600)
         else:
             return QSize(self.EXPANDED_WIDTH, 600)
+
+    def setup_sidebar(self):
+        # Tab部分
+        # 创建 Widget_Libary的widget
+        self.Widget_Library = QWidget()
+        # 创建Widget_Libary的layout
+        self.Widget_Libary_Layout = QVBoxLayout(self.Widget_Library)
+        self.Widget_Libary_Layout.setContentsMargins(16, 6, 0, 0)
+
+        # 创建Port视图的widget
+        self.port_widget = QWidget()
+        self.port_layout = QVBoxLayout(self.port_widget)
+
+        # 创建 Protocol视图的Widget
+        self.Protocol_widget = QWidget()
+        self.Protocol_layout = QVBoxLayout(self.Protocol_widget)
+
+        # TabBar
+        self.Tab = QTabWidget(self)
+        self.Icon_Base_Path = base_path + "/../../Image_Src/Icon/Left_Side/"
+        self.Icons_Normal = ["Widget_Normal.png", "Port_Normal.png", "Protocol_Normal.png"]
+        self.Icons_Active = ["Widget_Active.png", "Port_Active.png", "Protocol_Active.png"]
+        icon = QIcon()
+        # 添加Widget Tabbar Icon
+        icon_path = os.path.join(base_path, "../../Image_Src/Icon/Left_Side/Widget_Active.png")
+        icon.addPixmap(QPixmap(icon_path))
+        self.Tab.addTab(self.Widget_Library, icon, "Widget")
+
+        # 添加Port Tabbar Icon
+        icon = QIcon()
+        icon_path = os.path.join(base_path, "../../Image_Src/Icon/Left_Side/Port_Normal.png")
+        icon.addPixmap(QPixmap(icon_path))
+        icon.addPixmap(QPixmap(icon_path), QIcon.Mode.Selected, QIcon.State.On)
+
+        self.Tab.addTab(self.port_widget, icon, "Port")
+
+        # 添加Protocol Tabbar Icon
+        icon = QIcon()
+        icon_path = os.path.join(base_path, "../../Image_Src/Icon/Left_Side/Protocol_Normal.png")
+        icon.addPixmap(QPixmap(icon_path))
+        self.Tab.addTab(self.Protocol_widget, icon, "Protocol")
+
+        # 设置样式
+        self.Tab.setTabPosition(QTabWidget.TabPosition.North)  # 标签在顶部
+        self.Tab.tabBar().setExpanding(True)  # 标签横向填充
+        self.Tab.setFixedWidth(self.EXPANDED_WIDTH)
+        self.Tab.tabBar().setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        # 分配三个Tab的大小
+        self.Tab.tabBar().setFixedWidth(300)
+        # 添加CSS样式使标签贴顶并填充
+        self.Tab.setStyleSheet("""
+            background-color: transparent;
+            QTabWidget::pane {
+                border: none;
+                top: 0px;
+                margin-top: 0px;
+            }
+            QTabWidget::tab-bar {
+                background-color: transparent;
+                left: -10px;
+
+
+            }
+            QTabBar::tab {
+                background-color: #2A2A2A;
+                color: #999999;
+                margin: 0px;
+
+                border: none;
+                border-bottom: 2px solid #3A3A3A;
+            }
+            QTabBar::tab:selected {
+                background-color: #1A1A1A;
+                color: #0A84FF;
+                border-bottom: 2px solid #0A84FF;
+            }
+            QTabBar::tab:hover {
+                background-color: #333333;
+            }
+        """)
+        self.main_layout.addWidget(self.Tab)
+        self.Tab.currentChanged.connect(self.TabBar_onChanged)
+    def Setup_Widget_Library(self):
+        # Widget Tab 样式
+        # SearchBar
+        self.search_Widget = QWidget(self.Widget_Library)
+        self.search_Widget.setFixedHeight(36)
+        self.search_Widget.setContentsMargins(0, 0, 0, 0)
+        self.search_layout = QHBoxLayout(self.search_Widget)
+        self.search_layout.setContentsMargins(0, 0, 0, 0)
+        # Search Icon
+        self.Search_Input = QLineEdit(self.search_Widget)
+        self.Search_Input.setPlaceholderText("Search Widget")
+        icon_path = os.path.join(base_path, "../../Image_Src/Icon/Left_Side/Search.png")
+        icon = QIcon(icon_path)
+        self.Search_Input.addAction(icon, QLineEdit.ActionPosition.LeadingPosition)
+        self.search_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        self.search_layout.addWidget(self.Search_Input)
+        # 滚动区域
+        self.widgetlib_scroll = QScrollArea(self.Widget_Library)
+        self.widgetlib_scroll.setWidgetResizable(True)
+        self.widgetlib_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.widgetlib_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.widgetlib_scroll.setAutoFillBackground(True)
+        self.widgetlib_scroll.setStyleSheet("background-color: transparent;")
+        self.widgetlib_scroll.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        scroll_content = QWidget()
+        self.scroll_layout = QVBoxLayout(scroll_content)
+        self.scroll_layout.setSpacing(0)
+        self.main_layout.addWidget(self.widgetlib_scroll)
+        self.Widget_Libary_Layout.addWidget(self.search_Widget)
+        self.Widget_Libary_Layout.addWidget(self.widgetlib_scroll)
+        # 添加所有 Widget 项
+        self.widget_items = []
+        widgets = self._get_widgets_from_registry()
+        for widget_def in widgets:
+            item = WidgetLibraryItem(
+                widget_def['type'],
+                widget_def['label'],
+                widget_def['description'],
+                widget_def['icon'],
+                self.theme
+            )
+            item.clicked.connect(lambda t=widget_def['type']: self.widget_requested.emit(t, 100, 100))
+            self.scroll_layout.addWidget(item)
+            self.widget_items.append(item)
+
+
+        self.widgetlib_scroll.setWidget(scroll_content)
+
+        # 提示区域
+        self.tip_widget = QWidget()
+        tip_layout = QVBoxLayout(self.tip_widget)
+        tip_layout.setContentsMargins(16, 12, 16, 12)
+
+        self.tip_label = QLabel("💡 Tip")
+        self.tip_label.setStyleSheet("font-size: 11px; color: #999999;")
+        tip_layout.addWidget(self.tip_label)
+
+        self.tip_text = QLabel("Drag widgets onto the canvas or click to add them")
+        self.tip_text.setStyleSheet("font-size: 10px; color: #666666;")
+        self.tip_text.setWordWrap(True)
+        tip_layout.addWidget(self.tip_text)
+
+        self.Widget_Library.setStyleSheet("""
+            QWidget 
+            {
+                background-color: transparent;
+            }
+            QScrollArea
+            {
+                background-color: transparent;
+            }
+        """)
+
+    def setup_port(self):
+        # 设置整体页面layout对齐模式
+        self.port_layout.setContentsMargins(0, 0, 16, 0)
+        self.port_layout.setSpacing(0)
+        self.port_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        # 创建一个新的外部容器存储这个connect_status
+        
+
+
+
+        # 初始化链接状态部件
+        self.connect_status = QWidget()
+        self.connect_status.setObjectName("ConnectStatus")
+        self.connect_status.setMinimumWidth(200)
+        self.connect_status.setFixedHeight(78)  # 减小高度
+        # self.connect_status.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+        # 初始化链接状态部件垂直布局
+        connect_widget_layout = QVBoxLayout(self.connect_status)
+        connect_widget_layout.setContentsMargins(17, 0, 17, 0)
+        connect_widget_layout.setSpacing(0)  # 设置间距为0
+        # 初始化链接状态链接label
+        self.connect_label = QLabel("Unconnected")
+        self.connect_label.setFont(QFont("Arial", 14))
+        connect_widget_layout.addWidget(self.connect_label)
+
+        # 串口信息Label
+        self.Serial_Info_Label = QLabel("COM3 @115200 Baund")
+        self.Serial_Info_Label.setFont(QFont("Arial", 12))
+        self.Serial_Info_Label.setStyleSheet("""
+            QLabel
+            {
+                color: rgb(153, 161, 175);
+            }
+        """)
+        self.connect_status.setStyleSheet("""
+        #ConnectStatus {
+            background-color: rgba(12, 40, 25, 0.85);   /* 深绿色、轻微透明 */
+            border: 2px solid rgba(48, 209, 88, 0.35);  /* 内发光风格绿色边框 */
+            border-radius: 10px;                        /* 大圆角 */
+            padding: 8px;                               /* 减小内间距 */
+        }
+
+        #ConnectStatus QLabel {
+            background: transparent;                    /* 防止 QLabel 继承背景 */
+        }
+        """)
+        connect_widget_layout.addWidget(self.connect_label)
+        connect_widget_layout.addWidget(self.Serial_Info_Label)
+        connect_widget_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        connect_widget_layout.setContentsMargins(10, 0, 0, 0)  # 减小边距
+        # 使 connect_status 在 port_widget 中垂直居中并水平居中
+        # self.port_layout.addStretch()
+        self.port_layout.addWidget(self.connect_status, 0, Qt.AlignmentFlag.AlignHCenter)
+        # self.port_layout.addStretch()
+        # ####################################################################
+        # #                           初始化选项
+        # ####################################################################
+        #
+        # # 创建滚动区域
+        # scroll = QScrollArea(self.port_widget)
+        # scroll.setWidgetResizable(True)
+        # scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        # scroll.setFrameShape(QFrame.Shape.NoFrame)
+        # scroll.setAutoFillBackground(True)
+        # scroll.setStyleSheet("background-color: transparent;")
+        # scroll.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        # scroll.setContentsMargins(0, 0, 0, 0)
+        #
+        # # 创建 Combos 容器
+        # self.Combos = QWidget()
+        # Combos_layout = QVBoxLayout(self.Combos)
+        # self.Combos.setContentsMargins(0, 0, 0, 0)  # 合适的边距
+        # Combos_layout.setSpacing(8)  # 控件之间的间距
+        #
+        # # Serial Port 选择器
+        # Combo_Container = QWidget()
+        # Combo_Container.setStyleSheet(" border-radius: 6px;")
+        # Combo_Container_layout = QVBoxLayout(Combo_Container)
+        # Combo_Container_layout.setContentsMargins(8, 8, 8, 8)
+        # Combo_Container_layout.setSpacing(4)
+        #
+        # Label = QLabel("Serial Port")
+        # Label.setStyleSheet("color: white; font-weight: bold;")
+        # self.Serial_Selector = QComboBox()
+        # self.Serial_Selector.addItem("COM3 @115200 Bund")
+        # self.Serial_Selector.addItem("COM4 @115200 Bund")
+        # self.Serial_Selector.setStyleSheet("""
+        #     QComboBox {
+        #         color: white;
+        #         border: 1px solid #5D5D5D;
+        #         border-radius: 4px;
+        #         padding: 4px;
+        #     }
+        #     QComboBox::drop-down {
+        #         border: none;
+        #     }
+        # """)
+        #
+        # Combo_Container_layout.addWidget(Label)
+        # Combo_Container_layout.addWidget(self.Serial_Selector)
+        # Combos_layout.addWidget(Combo_Container)
+        #
+        # # Baud Rate 选择器
+        # Combo_Container = QWidget()
+        # Combo_Container.setStyleSheet(" border-radius: 6px;")
+        # Combo_Container_layout = QVBoxLayout(Combo_Container)
+        # Combo_Container_layout.setContentsMargins(8, 8, 8, 8)
+        # Combo_Container_layout.setSpacing(4)
+        #
+        # Label = QLabel("Baud Rate")
+        # Label.setStyleSheet("color: white; font-weight: bold;")
+        # self.BaundRate_Selector = QComboBox()
+        # self.BaundRate_Selector.addItem("9600")
+        # self.BaundRate_Selector.addItem("115200")
+        # self.BaundRate_Selector.setStyleSheet("""
+        #     QComboBox {
+        #         color: white;
+        #         border: 1px solid #5D5D5D;
+        #         border-radius: 4px;
+        #         padding: 4px;
+        #     }
+        #     QComboBox::drop-down {
+        #         border: none;
+        #     }
+        # """)
+        #
+        # Combo_Container_layout.addWidget(Label)
+        # Combo_Container_layout.addWidget(self.BaundRate_Selector)
+        # Combos_layout.addWidget(Combo_Container)
+        #
+        # # Data Bits 选择器
+        # Combo_Container = QWidget()
+        # Combo_Container.setStyleSheet(" border-radius: 6px;")
+        # Combo_Container_layout = QVBoxLayout(Combo_Container)
+        # Combo_Container_layout.setContentsMargins(8, 8, 8, 8)
+        # Combo_Container_layout.setSpacing(4)
+        #
+        # Label = QLabel("Data Bits")
+        # Label.setStyleSheet("color: white; font-weight: bold;")
+        # self.DataBits_Selector = QComboBox()
+        # self.DataBits_Selector.addItem("8")
+        # self.DataBits_Selector.addItem("7")
+        # self.DataBits_Selector.setStyleSheet("""
+        #     QComboBox {
+        #         color: white;
+        #         border: 1px solid #5D5D5D;
+        #         border-radius: 4px;
+        #         padding: 4px;
+        #     }
+        #     QComboBox::drop-down {
+        #         border: none;
+        #     }
+        # """)
+        #
+        # Combo_Container_layout.addWidget(Label)
+        # Combo_Container_layout.addWidget(self.DataBits_Selector)
+        # Combos_layout.addWidget(Combo_Container)
+        #
+        # # Parity 选择器
+        # Combo_Container = QWidget()
+        # Combo_Container.setStyleSheet(" border-radius: 6px;")
+        # Combo_Container_layout = QVBoxLayout(Combo_Container)
+        # Combo_Container_layout.setContentsMargins(8, 8, 8, 8)
+        # Combo_Container_layout.setSpacing(4)
+        #
+        # Label = QLabel("Parity")
+        # Label.setStyleSheet("color: white; font-weight: bold;")
+        # self.Parity_Selector = QComboBox()
+        # self.Parity_Selector.addItem("None")
+        # self.Parity_Selector.addItem("Odd")
+        # self.Parity_Selector.addItem("Even")
+        # self.Parity_Selector.setStyleSheet("""
+        #     QComboBox {
+        #
+        #         color: white;
+        #         border: 1px solid #5D5D5D;
+        #         border-radius: 4px;
+        #         padding: 4px;
+        #     }
+        #     QComboBox::drop-down {
+        #         border: none;
+        #     }
+        # """)
+        #
+        # Combo_Container_layout.addWidget(Label)
+        # Combo_Container_layout.addWidget(self.Parity_Selector)
+        # Combos_layout.addWidget(Combo_Container)
+        #
+        # # Stop Bits 选择器
+        # Combo_Container = QWidget()
+        # Combo_Container.setStyleSheet("backgrborder-radius: 6px;")
+        # Combo_Container_layout = QVBoxLayout(Combo_Container)
+        # Combo_Container_layout.setContentsMargins(8, 8, 8, 8)
+        # Combo_Container_layout.setSpacing(4)
+        #
+        # Label = QLabel("Stop Bits")
+        # Label.setStyleSheet("color: white; font-weight: bold;")
+        # self.StopBits_Selector = QComboBox()
+        # self.StopBits_Selector.addItem("1")
+        # self.StopBits_Selector.addItem("2")
+        # self.StopBits_Selector.setStyleSheet("""
+        #     QComboBox {
+        #         color: white;
+        #         border: 1px solid #5D5D5D;
+        #         border-radius: 4px;
+        #         padding: 4px;
+        #     }
+        #     QComboBox::drop-down {
+        #         border: none;
+        #     }
+        # """)
+        #
+        # Combo_Container_layout.addWidget(Label)
+        # Combo_Container_layout.addWidget(self.StopBits_Selector)
+        # Combos_layout.addWidget(Combo_Container)
+        #
+        # # 添加伸展空间以防止控件被拉伸
+        # Combos_layout.addStretch()
+        #
+        # # 将 Combos 设置为滚动区域的 widget
+        # scroll.setWidget(self.Combos)
+        #
+        # # 将滚动区域添加到 port_layout
+        # self.port_layout.addWidget(scroll)

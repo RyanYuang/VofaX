@@ -208,6 +208,7 @@ class SerialThread(QThread):
         """
         # 添加到缓冲区
         self.buffer.extend(data)
+        print(data)
 
         # 使用数据引擎解析
         while len(self.buffer) > 0:
@@ -216,6 +217,7 @@ class SerialThread(QThread):
             # 使用制定的数据引擎解析数据
             result = self.engine.parse(self.buffer)
             # 清理已消耗的数据
+
             if result.consumed_bytes > 0:
                 self.buffer = self.buffer[result.consumed_bytes:]
                 logger.debug(f"Consumed {result.consumed_bytes} bytes, buffer remaining: {len(self.buffer)}")
